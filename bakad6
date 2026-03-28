@@ -1,0 +1,144 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad6"
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local found_success = false
+    local scan_completed = false
+
+    -- 1. START LISTENING
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        if string.find(message:lower(), "]===] .. success_text:lower() .. [===[", 1, true) then
+            found_success = true
+        end
+        if string.find(message:lower(), "scan complete") or string.find(message:lower(), "finished") or string.find(message:lower(), "done") then
+            scan_completed = true
+        end
+    end)
+
+    -- 2. EXECUTE SCANNER
+    print("Initializing scanner...")
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    -- 3. WAIT FOR RESULTS
+    local timer = 0
+    while timer < 25 do
+        if found_success or scan_completed then break end
+        task.wait(1)
+        timer = timer + 1
+    end
+    
+    connection:Disconnect()
+
+    -- 4. INITIALIZE UI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ScannerStatus"
+    screenGui.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 70)
+    frame.Position = UDim2.new(1, -260, 1, -80)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextSize = 14
+    statusLabel.Parent = frame
+
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextSize = 12
+    infoLabel.Parent = frame
+
+    if found_success then
+        statusLabel.Text = "Status: Match Found!"
+        infoLabel.Text = "Preparing to server hop..."
+        task.wait(1)
+
+        -- 5. SERVER HOPPER
+        local function serverHop()
+            local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if queue then
+                pcall(function() queue(game:HttpGet("]===] .. self_url .. [===[")) end)
+            end
+
+            local PlaceID = game.PlaceId
+            local AllIDs = {}
+            local foundAnything = ""
+            local actualHour = os.date("!*t").hour
+            
+            pcall(function() AllIDs = HttpService:JSONDecode(readfile("NotSameServers.json")) end)
+            if not AllIDs or type(AllIDs) ~= "table" then AllIDs = {actualHour} end
+
+            while task.wait(1) do
+                statusLabel.Text = "Status: Finding Server..."
+                infoLabel.Text = "Servers Checked: " .. #AllIDs
+                
+                local s, res = pcall(function()
+                    local url = 'https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'
+                    if foundAnything ~= "" then url = url .. '&cursor=' .. foundAnything end
+                    return game:HttpGet(url)
+                end)
+
+                if s and res then
+                    local Site = HttpService:JSONDecode(res)
+                    if Site and Site.nextPageCursor then foundAnything = Site.nextPageCursor end
+
+                    -- FIX: Ensure Site.data exists before calling pairs()
+                    if Site and Site.data then
+                        for _, v in pairs(Site.data) do
+                            local ID = tostring(v.id)
+                            if v.playing and v.maxPlayers and v.playing < v.maxPlayers and ID ~= game.JobId then
+                                local alreadyVisited = false
+                                for _, exists in pairs(AllIDs) do if ID == exists then alreadyVisited = true break end end
+                                
+                                if not alreadyVisited then
+                                    table.insert(AllIDs, ID)
+                                    writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+                                    statusLabel.Text = "Status: Teleporting!"
+                                    infoLabel.Text = "ID: .." .. string.sub(ID, -5)
+                                    TeleportService:TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
+                                    task.wait(3)
+                                end
+                            end
+                        end
+                    else
+                        statusLabel.Text = "Status: Retrying API..."
+                        task.wait(2)
+                    end
+                end
+            end
+        end
+        serverHop()
+    else
+        statusLabel.Text = "Status: No Match Found"
+        infoLabel.Text = "Scan finished. Staying here."
+        task.wait(5)
+        screenGui:Destroy()
+    end
+]===]
+
+loadstring(FinalScript)()
