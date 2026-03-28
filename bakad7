@@ -1,0 +1,163 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad7"
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local found_success = false
+    local scan_completed = false
+
+    -- 1. START LISTENING
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        if string.find(message:lower(), "]===] .. success_text:lower() .. [===[", 1, true) then
+            found_success = true
+        end
+        if string.find(message:lower(), "scan complete") or string.find(message:lower(), "finished") or string.find(message:lower(), "done") then
+            scan_completed = true
+        end
+    end)
+
+    -- 2. EXECUTE SCANNER
+    print("Initializing scanner...")
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    -- 3. WAIT FOR RESULTS
+    local timer = 0
+    while timer < 25 do
+        if found_success or scan_completed then break end
+        task.wait(1)
+        timer = timer + 1
+    end
+    
+    connection:Disconnect()
+
+    -- 4. INITIALIZE UI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ScannerStatus"
+    screenGui.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 70)
+    frame.Position = UDim2.new(1, -260, 1, -80)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextSize = 14
+    statusLabel.Parent = frame
+
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextSize = 12
+    infoLabel.Parent = frame
+
+    if found_success then
+        statusLabel.Text = "Status: Match Found!"
+        infoLabel.Text = "Preparing to server hop..."
+        task.wait(1)
+
+        -- 5. SERVER HOPPER
+        local function serverHop()
+            local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if queue then
+                pcall(function() queue(game:HttpGet("]===] .. self_url .. [===[")) end)
+            end
+
+            local PlaceID = game.PlaceId
+            local AllIDs = {}
+            local foundAnything = ""
+            local actualHour = os.date("!*t").hour
+            
+            -- LOAD BLACKLIST
+            local function loadFile()
+                local s, res = pcall(function() return HttpService:JSONDecode(readfile("NotSameServers.json")) end)
+                if s and type(res) == "table" then return res else return {actualHour} end
+            end
+            
+            AllIDs = loadFile()
+            
+            -- IMMEDIATELY BLACKLIST CURRENT SERVER
+            local currentJobId = tostring(game.JobId)
+            local isCurrentListed = false
+            for _, id in pairs(AllIDs) do if id == currentJobId then isCurrentListed = true break end end
+            if not isCurrentListed then 
+                table.insert(AllIDs, currentJobId) 
+                writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+            end
+
+            while task.wait(2) do -- Higher wait to prevent API Rate Limit
+                statusLabel.Text = "Status: Fetching List..."
+                infoLabel.Text = "Servers Checked: " .. #AllIDs
+                
+                local s, res = pcall(function()
+                    local url = 'https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'
+                    if foundAnything ~= "" then url = url .. '&cursor=' .. foundAnything end
+                    return game:HttpGet(url)
+                end)
+
+                if s and res and string.find(res, "data") then
+                    local Site = HttpService:JSONDecode(res)
+                    if Site and Site.nextPageCursor then foundAnything = Site.nextPageCursor end
+
+                    if Site and Site.data then
+                        for _, v in pairs(Site.data) do
+                            local ID = tostring(v.id)
+                            if v.playing and v.maxPlayers and v.playing < v.maxPlayers and ID ~= currentJobId then
+                                local alreadyVisited = false
+                                for _, exists in pairs(AllIDs) do 
+                                    if ID == tostring(exists) then alreadyVisited = true break end 
+                                end
+                                
+                                if not alreadyVisited then
+                                    statusLabel.Text = "Status: Teleporting!"
+                                    infoLabel.Text = "New Server: .." .. string.sub(ID, -5)
+                                    
+                                    table.insert(AllIDs, ID)
+                                    writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs))
+                                    
+                                    task.wait(0.5)
+                                    TeleportService:TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
+                                    task.wait(5) -- Protection
+                                end
+                            end
+                        end
+                    end
+                else
+                    statusLabel.Text = "Status: API Rate Limited"
+                    infoLabel.Text = "Retrying in 5 seconds..."
+                    task.wait(5)
+                end
+            end
+        end
+        serverHop()
+    else
+        statusLabel.Text = "Status: No Match Found"
+        infoLabel.Text = "Scan finished. Staying here."
+        task.wait(5)
+        screenGui:Destroy()
+    end
+]===]
+
+loadstring(FinalScript)()
