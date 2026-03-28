@@ -1,0 +1,135 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad8"
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local found_success = false
+    local scan_completed = false
+    local fileName = "NotSameServers.json"
+
+    -- 1. PRE-LOAD PERSISTENT DATA FROM WORKSPACE
+    local function getBlacklist()
+        local ok, data = pcall(function()
+            if isfile(fileName) then
+                return HttpService:JSONDecode(readfile(fileName))
+            end
+        end)
+        if ok and type(data) == "table" then return data end
+        return {os.date("!*t").hour} -- Fresh start if file missing
+    end
+
+    local AllIDs = getBlacklist()
+
+    -- 2. START LISTENING
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        if string.find(message:lower(), "]===] .. success_text:lower() .. [===[", 1, true) then
+            found_success = true
+        end
+        if string.find(message:lower(), "scan complete") or string.find(message:lower(), "finished") then
+            scan_completed = true
+        end
+    end)
+
+    -- 3. EXECUTE SCANNER
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    -- 4. WAIT FOR RESULTS (Max 25s)
+    local timer = 0
+    while timer < 25 do
+        if found_success or scan_completed then break end
+        task.wait(1)
+        timer = timer + 1
+    end
+    
+    connection:Disconnect()
+
+    -- 5. UI INITIALIZATION (Only if we are moving)
+    if found_success then
+        local screenGui = Instance.new("ScreenGui", CoreGui)
+        local frame = Instance.new("Frame", screenGui)
+        frame.Size = UDim2.new(0, 250, 0, 70)
+        frame.Position = UDim2.new(1, -260, 1, -80)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        
+        local statusLabel = Instance.new("TextLabel", frame)
+        statusLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        statusLabel.TextColor3 = Color3.new(1, 1, 1)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.TextSize = 14
+        statusLabel.Text = "Match Found! Hopping..."
+
+        local infoLabel = Instance.new("TextLabel", frame)
+        infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        infoLabel.BackgroundTransparency = 1
+        infoLabel.Text = "Visited: " .. #AllIDs
+
+        -- 6. PERSISTENT SERVER HOPPER
+        local function serverHop()
+            -- Queue this script for the next teleport
+            local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if queue then
+                pcall(function() queue(game:HttpGet("]===] .. self_url .. [===[")) end)
+            end
+
+            -- Blacklist current server before leaving
+            local currentID = tostring(game.JobId)
+            local alreadyIn = false
+            for _, id in pairs(AllIDs) do if id == currentID then alreadyIn = true break end end
+            if not alreadyIn then
+                table.insert(AllIDs, currentID)
+                writefile(fileName, HttpService:JSONEncode(AllIDs))
+            end
+
+            local foundAnything = ""
+            while task.wait(2) do
+                local s, res = pcall(function()
+                    local url = 'https://games.roblox.com/v1/games/' .. game.PlaceId .. '/servers/Public?sortOrder=Asc&limit=100'
+                    if foundAnything ~= "" then url = url .. '&cursor=' .. foundAnything end
+                    return game:HttpGet(url)
+                end)
+
+                if s and res and string.find(res, "data") then
+                    local Site = HttpService:JSONDecode(res)
+                    if Site.nextPageCursor then foundAnything = Site.nextPageCursor end
+
+                    for _, v in pairs(Site.data) do
+                        local ID = tostring(v.id)
+                        if v.playing < v.maxPlayers and ID ~= currentID then
+                            local visited = false
+                            for _, ex in pairs(AllIDs) do if ID == tostring(ex) then visited = true break end end
+                            
+                            if not visited then
+                                table.insert(AllIDs, ID)
+                                writefile(fileName, HttpService:JSONEncode(AllIDs))
+                                statusLabel.Text = "Teleporting..."
+                                TeleportService:TeleportToPlaceInstance(game.PlaceId, ID, game.Players.LocalPlayer)
+                                task.wait(5)
+                            end
+                        end
+                    end
+                else
+                    statusLabel.Text = "API Limited. Waiting..."
+                    task.wait(5)
+                end
+            end
+        end
+        serverHop()
+    else
+        -- If it STOPS here, it means you found a hit!
+        print("!!! HIT DETECTED - STAYING IN SERVER !!!")
+    end
+]===]
+
+loadstring(FinalScript)()
