@@ -1,0 +1,434 @@
+-- [[ INDUSTRIAL TITAN - V31 ULTIMATE UNROLLED BATCH ]] --
+-- [[ MANUAL VOLUME EXPANSION - SNIPPET INTEGRATION ]] --
+
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/egro2"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ SECTION 1: SYSTEM REGISTRY ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local Stats = game:GetService("Stats")
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ SECTION 2: VARIABLE BLOCK ]] --
+    local found_success = false
+    local scan_completed = false
+    local is_minimized = false
+    local databaseName = "NotSameServers.json"
+    local currentJobId = tostring(game.JobId)
+    local PlaceID = game.PlaceId
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "INIT_NODE_LINK"
+    local startTime = os.time()
+    local actualHour = os.date("!*t").hour
+    
+    local AllIDs = {}
+    local foundAnything = ""
+    local currentSort = "Asc" 
+    local retry_attempt = 0
+    local reset_stage = 0
+    local min_players_required = 2 -- NEW FILTER
+
+    -- [[ SECTION 3: GAME DATA FETCH ]] --
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(tonumber(PlaceID))
+        gameName = info.Name
+    end)
+
+    -- [[ SECTION 4: ANTI-IDLE PROTOCOL ]] --
+    task.spawn(function()
+        local VU = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                VU:CaptureController()
+                VU:ClickButton2(Vector2.new(0,0))
+            end)
+        end)
+    end)
+
+    -- [[ SECTION 5: UI ARCHITECTURE (ULTRA-BLOAT) ]] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Industrial_Titan_v31"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 560, 0, 620)
+    mainFrame.Position = UDim2.new(1, -580, 1, -640)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(2, 2, 2)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 15)
+    mainCorner.Parent = mainFrame
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 6
+    mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    mainStroke.Parent = mainFrame
+
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 90)
+    header.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 15)
+    headerCorner.Parent = header
+
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -160, 1, 0)
+    title.Position = UDim2.new(0, 25, 0, 0)
+    title.Text = "TITAN v31.0 [EXTENDED]"
+    title.TextColor3 = Color3.fromRGB(0, 255, 150)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 18
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+
+    local minBtn = Instance.new("TextButton")
+    minBtn.Name = "MinBtn"
+    minBtn.Size = UDim2.new(0, 45, 0, 45)
+    minBtn.Position = UDim2.new(1, -60, 0.5, -22)
+    minBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    minBtn.Text = "-"
+    minBtn.TextColor3 = Color3.new(1, 1, 1)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.Parent = header
+
+    local minCorner = Instance.new("UICorner")
+    minCorner.CornerRadius = UDim.new(1, 0)
+    minCorner.Parent = minBtn
+
+    local content = Instance.new("Frame")
+    content.Name = "Content"
+    content.Size = UDim2.new(1, 0, 1, -90)
+    content.Position = UDim2.new(0, 0, 0, 90)
+    content.BackgroundTransparency = 1
+    content.Parent = mainFrame
+
+    local grid = Instance.new("Frame")
+    grid.Name = "StatsGrid"
+    grid.Size = UDim2.new(1, -30, 0, 220)
+    grid.Position = UDim2.new(0, 15, 0, 15)
+    grid.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    grid.BorderSizePixel = 0
+    grid.Parent = content
+
+    local gridCorner = Instance.new("UICorner")
+    gridCorner.CornerRadius = UDim.new(0, 12)
+    gridCorner.Parent = grid
+
+    local gridStroke = Instance.new("UIStroke")
+    gridStroke.Color = Color3.fromRGB(45, 45, 45)
+    gridStroke.Thickness = 2
+    gridStroke.Parent = grid
+
+    -- [[ MANUAL LABEL DEFINITIONS ]] --
+    local L1 = Instance.new("TextLabel")
+    L1.Size = UDim2.new(0.5, -15, 0, 25)
+    L1.Position = UDim2.new(0, 15, 0, 15)
+    L1.Text = "EXP: " .. string.sub(gameName, 1, 18)
+    L1.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    L1.BackgroundTransparency = 1
+    L1.Font = Enum.Font.GothamSemibold
+    L1.TextSize = 10
+    L1.TextXAlignment = Enum.TextXAlignment.Left
+    L1.Parent = grid
+
+    local L2 = Instance.new("TextLabel")
+    L2.Size = UDim2.new(0.5, -15, 0, 25)
+    L2.Position = UDim2.new(0.5, 5, 0, 15)
+    L2.Text = "PING: 0ms"
+    L2.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    L2.BackgroundTransparency = 1
+    L2.Font = Enum.Font.GothamSemibold
+    L2.TextSize = 10
+    L2.TextXAlignment = Enum.TextXAlignment.Left
+    L2.Parent = grid
+
+    local L3 = Instance.new("TextLabel")
+    L3.Size = UDim2.new(0.5, -15, 0, 25)
+    L3.Position = UDim2.new(0, 15, 0, 45)
+    L3.Text = "API DEPTH: 0"
+    L3.TextColor3 = Color3.fromRGB(0, 180, 255)
+    L3.BackgroundTransparency = 1
+    L3.Font = Enum.Font.GothamSemibold
+    L3.TextSize = 10
+    L3.TextXAlignment = Enum.TextXAlignment.Left
+    L3.Parent = grid
+
+    local L4 = Instance.new("TextLabel")
+    L4.Size = UDim2.new(0.5, -15, 0, 25)
+    L4.Position = UDim2.new(0.5, 5, 0, 45)
+    L4.Text = "DATABASE: 0"
+    L4.TextColor3 = Color3.fromRGB(150, 150, 150)
+    L4.BackgroundTransparency = 1
+    L4.Font = Enum.Font.GothamSemibold
+    L4.TextSize = 10
+    L4.TextXAlignment = Enum.TextXAlignment.Left
+    L4.Parent = grid
+
+    local L5 = Instance.new("TextLabel")
+    L5.Size = UDim2.new(0.5, -15, 0, 25)
+    L5.Position = UDim2.new(0, 15, 0, 75)
+    L5.Text = "MIN PLAYERS: " .. min_players_required
+    L5.TextColor3 = Color3.fromRGB(255, 80, 80)
+    L5.BackgroundTransparency = 1
+    L5.Font = Enum.Font.GothamSemibold
+    L5.TextSize = 10
+    L5.TextXAlignment = Enum.TextXAlignment.Left
+    L5.Parent = grid
+
+    local L6 = Instance.new("TextLabel")
+    L6.Size = UDim2.new(0.5, -15, 0, 25)
+    L6.Position = UDim2.new(0.5, 5, 0, 75)
+    L6.Text = "SORT: ASCENDING"
+    L6.TextColor3 = Color3.fromRGB(255, 200, 0)
+    L6.BackgroundTransparency = 1
+    L6.Font = Enum.Font.GothamSemibold
+    L6.TextSize = 10
+    L6.TextXAlignment = Enum.TextXAlignment.Left
+    L6.Parent = grid
+
+    local LS = Instance.new("TextLabel")
+    LS.Size = UDim2.new(1, -30, 0, 30)
+    LS.Position = UDim2.new(0, 15, 0, 160)
+    LS.Text = "STATUS: BOOTING..."
+    LS.TextColor3 = Color3.fromRGB(0, 255, 150)
+    LS.BackgroundTransparency = 1
+    LS.Font = Enum.Font.GothamBold
+    LS.TextSize = 11
+    LS.TextXAlignment = Enum.TextXAlignment.Left
+    LS.Parent = grid
+
+    local logScroll = Instance.new("ScrollingFrame")
+    logScroll.Size = UDim2.new(1, -30, 0, 180)
+    logScroll.Position = UDim2.new(0, 15, 0, 250)
+    logScroll.BackgroundColor3 = Color3.fromRGB(2, 2, 2)
+    logScroll.BorderSizePixel = 0
+    logScroll.ScrollBarThickness = 4
+    logScroll.Parent = content
+
+    local logLayout = Instance.new("UIListLayout")
+    logLayout.Padding = UDim.new(0, 3)
+    logLayout.Parent = logScroll
+
+    -- [[ RESET BUTTON DEPLOYMENT ]] --
+    local resetBtn = Instance.new("TextButton")
+    resetBtn.Size = UDim2.new(1, -30, 0, 45)
+    resetBtn.Position = UDim2.new(0, 15, 0, 455)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    resetBtn.Text = "HARD RESET DATABASE"
+    resetBtn.TextColor3 = Color3.new(1, 1, 1)
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.TextSize = 12
+    resetBtn.Parent = content
+
+    local resetCorner = Instance.new("UICorner")
+    resetCorner.CornerRadius = UDim.new(0, 8)
+    resetCorner.Parent = resetBtn
+
+    -- [[ HELPER FUNCTIONS ]] --
+    local function AddLog(msg, col)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -10, 0, 18)
+        l.BackgroundTransparency = 1
+        l.Text = " [" .. os.date("%X") .. "] " .. msg
+        l.TextColor3 = col or Color3.new(0.9, 0.9, 0.9)
+        l.Font = Enum.Font.Code
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = logScroll
+        logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 20)
+    end
+
+    local function SyncDatabase()
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(databaseName))
+        end)
+        if success then
+            AllIDs = result
+            L4.Text = "DATABASE: " .. #AllIDs
+        else
+            AllIDs = {actualHour}
+            writefile(databaseName, HttpService:JSONEncode(AllIDs))
+        end
+    end
+    SyncDatabase()
+
+    resetBtn.MouseButton1Click:Connect(function()
+        if reset_stage == 0 then
+            reset_stage = 1
+            resetBtn.Text = "ARE YOU SURE? (CLICK AGAIN)"
+            resetBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+        else
+            reset_stage = 0
+            AllIDs = {actualHour}
+            writefile(databaseName, HttpService:JSONEncode(AllIDs))
+            resetBtn.Text = "HISTORY WIPED!"
+            resetBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            AddLog("DATABASE PURGED BY USER.", Color3.fromRGB(0, 255, 150))
+            task.wait(2)
+            resetBtn.Text = "HARD RESET DATABASE"
+            resetBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+        end
+    end)
+
+    -- [[ SECTION 6: THE SCAN ENGINE ]] --
+    local obs = LogService.MessageOut:Connect(function(m)
+        local low = m:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then found_success = true end
+        if string.find(low, "complete") or string.find(low, "finished") then scan_completed = true end
+    end)
+
+    AddLog("INJECTING ANALYZER...", Color3.new(1, 1, 1))
+    pcall(function() loadstring(game:HttpGet("]===] .. script_url .. [===["))() end)
+
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                L2.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+            end)
+        end
+    end)
+
+    local waitA = 0
+    while waitA < 35 do
+        if found_success then break end
+        if scan_completed and waitA > 5 then break end
+        waitA = waitA + 1
+        LS.Text = "STATUS: ANALYZING (" .. waitA .. "s)"
+        task.wait(1)
+    end
+    obs:Disconnect()
+
+    -- [[ SECTION 7: THE GHOST-PROOF HOPPER ]] --
+    local function TPReturner()
+        local Site;
+        local api_url = 'https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=' .. currentSort .. '&limit=100'
+        
+        if foundAnything ~= "" then
+            api_url = api_url .. '&cursor=' .. foundAnything
+        end
+        
+        local ok, response = pcall(function()
+            return game:HttpGet(api_url)
+        end)
+        
+        if ok and response then
+            Site = HttpService:JSONDecode(response)
+            
+            -- CHECK FOR GHOST PAGE
+            if not Site or not Site.data or #Site.data == 0 then
+                foundAnything = ""
+                currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+                L6.Text = "SORT: " .. currentSort:upper()
+                AddLog("GHOST PAGE: FLIPPING TO " .. currentSort, Color3.fromRGB(255, 150, 0))
+                return
+            end
+
+            -- SET CURSOR FOR NEXT RUN
+            if Site.nextPageCursor and Site.nextPageCursor ~= "null" then
+                foundAnything = Site.nextPageCursor
+            else
+                foundAnything = ""
+                currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+                L6.Text = "SORT: " .. currentSort:upper()
+            end
+
+            for _, server in pairs(Site.data) do
+                local Possible = true
+                local ID = tostring(server.id)
+                local players = tonumber(server.playing)
+                local max = tonumber(server.maxPlayers)
+
+                -- FILTER: SPACE AVAILABLE AND MIN PLAYERS
+                if max > players and players >= min_players_required and ID ~= currentJobId then
+                    
+                    -- CHECK DATABASE
+                    for index, ExistingID in pairs(AllIDs) do
+                        if index == 1 then
+                            if tonumber(actualHour) ~= tonumber(ExistingID) then
+                                AllIDs = {actualHour}
+                                pcall(function() delfile(databaseName) end)
+                            end
+                        else
+                            if ID == tostring(ExistingID) then
+                                Possible = false
+                                break
+                            end
+                        end
+                    end
+
+                    if Possible then
+                        table.insert(AllIDs, ID)
+                        AddLog("FOUND TARGET: " .. players .. "/" .. max, Color3.fromRGB(0, 255, 100))
+                        pcall(function()
+                            writefile(databaseName, HttpService:JSONEncode(AllIDs))
+                            TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                        end)
+                        task.wait(8)
+                    end
+                end
+            end
+        else
+            AddLog("API THROTTLE. COOLING DOWN.", Color3.new(1,0,0))
+            task.wait(5)
+        end
+    end
+
+    if found_success then
+        LS.Text = "STATUS: DEPLOYING PERSISTENT HOPPER..."
+        local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+        if q then
+            pcall(function()
+                q(game:HttpGet("]===] .. self_url .. [===["))
+            end)
+        end
+        
+        -- START LOOP
+        while task.wait(1.5) do
+            pcall(function()
+                TPReturner()
+            end)
+        end
+    else
+        LS.Text = "STATUS: CRITICAL THREAT!"; mainStroke.Color = Color3.fromRGB(255, 50, 50)
+        pcall(function()
+            local payload = HttpService:JSONEncode({
+                ["username"] = "Titan v31",
+                ["embeds"] = {{
+                    ["title"] = "🎯 BACKDOOR DETECTED",
+                    ["color"] = 16711680,
+                    ["fields"] = {{["name"] = "Game", ["value"] = gameName}}
+                }}
+            })
+            local req = (syn and syn.request) or (http and http.request) or http_request
+            req({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
