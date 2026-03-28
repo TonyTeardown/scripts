@@ -1,0 +1,354 @@
+-- [[ GLOBAL CONFIGURATION ]] --
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/BAKADV2.1"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ INDUSTRIAL CORE SERVICES ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local RunService = game:GetService("RunService")
+    local Stats = game:GetService("Stats")
+    local UserInputService = game:GetService("UserInputService")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ SYSTEM REGISTRY ]] --
+    local found_success = false
+    local scan_completed = false
+    local databaseName = "Scanner_MultiGame_Pro.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = tostring(game.PlaceId)
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "Scanning Metadata..."
+    local startTime = os.time()
+    
+    -- Attempt to fetch Game Name for the UI and Webhook
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(tonumber(placeId))
+        gameName = info.Name
+    end)
+
+    -- [[ THREADED ANTI-AFK SYSTEM ]] --
+    -- This runs in a separate thread to ensure you never get kicked for 20min idle.
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            warn("[SYSTEM] Anti-AFK: Prevented idle disconnect.")
+        end)
+    end)
+
+    -- [[ UI ARCHITECTURE - SUPERSONIC INDUSTRIAL v10.0 ]] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Scanner_Industrial_v10"
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 450, 0, 380) 
+    mainFrame.Position = UDim2.new(1, -460, 1, -390)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+    
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 2
+    mainStroke.Parent = mainFrame
+
+    -- Header Panel
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 50)
+    header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 10)
+
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, -20, 1, 0)
+    titleText.Position = UDim2.new(0, 15, 0, 0)
+    titleText.Text = "INDUSTRIAL MULTI-GAME ANALYZER v10.0"
+    titleText.TextColor3 = Color3.fromRGB(0, 255, 150)
+    titleText.BackgroundTransparency = 1
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextSize = 14
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = header
+
+    -- Stats Display Panel
+    local statsFrame = Instance.new("Frame")
+    statsFrame.Size = UDim2.new(1, -20, 0, 80)
+    statsFrame.Position = UDim2.new(0, 10, 0, 60)
+    statsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    statsFrame.Parent = mainFrame
+    Instance.new("UICorner", statsFrame).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", statsFrame).Color = Color3.fromRGB(40, 40, 40)
+
+    local function createStatLabel(text, pos, color)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(0.5, -10, 0, 25)
+        l.Position = pos
+        l.Text = text
+        l.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+        l.BackgroundTransparency = 1
+        l.Font = Enum.Font.GothamSemibold
+        l.TextSize = 11
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = statsFrame
+        return l
+    end
+
+    local gameLabel = createStatLabel("GAME: " .. string.sub(gameName, 1, 20), UDim2.new(0, 10, 0, 5))
+    local pingLabel = createStatLabel("PING: 0ms", UDim2.new(0.5, 0, 0, 5))
+    local playerLabel = createStatLabel("PLAYERS: 0/0", UDim2.new(0, 10, 0, 25))
+    local pageLabel = createStatLabel("API DEPTH: PAGE 0", UDim2.new(0.5, 0, 0, 25), Color3.fromRGB(0, 180, 255))
+    local dbLabel = createStatLabel("DB SERVERS: 0", UDim2.new(0, 10, 0, 45), Color3.fromRGB(150, 150, 150))
+    local timerLabel = createStatLabel("SESSION: 0s", UDim2.new(0.5, 0, 0, 45))
+
+    -- Console / Logging System
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -20, 0, 25)
+    statusLabel.Position = UDim2.new(0, 10, 0, 145)
+    statusLabel.Text = "SYSTEM STATUS: INITIALIZING..."
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamBold
+    statusLabel.TextSize = 12
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = mainFrame
+
+    local logContainer = Instance.new("ScrollingFrame")
+    logContainer.Size = UDim2.new(1, -20, 0, 180)
+    logContainer.Position = UDim2.new(0, 10, 0, 175)
+    logContainer.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    logContainer.BorderSizePixel = 0
+    logContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    logContainer.ScrollBarThickness = 3
+    logContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    logContainer.Parent = mainFrame
+    Instance.new("UICorner", logContainer).CornerRadius = UDim.new(0, 4)
+
+    local logLayout = Instance.new("UIListLayout")
+    logLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    logLayout.Padding = UDim.new(0, 2)
+    logLayout.Parent = logContainer
+
+    local function updateLog(txt, color)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -10, 0, 18)
+        l.BackgroundTransparency = 1
+        l.Text = " [" .. os.date("%X") .. "] " .. txt
+        l.TextColor3 = color or Color3.fromRGB(220, 220, 220)
+        l.Font = Enum.Font.Code
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = logContainer
+        
+        -- Supersonic Auto-Scroll logic
+        logContainer.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 10)
+        logContainer.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    end
+
+    -- [[ MULTI-GAME DATABASE INFRASTRUCTURE ]] --
+    local function loadFullDatabase()
+        updateLog("Loading Multi-Game Master Database...", Color3.new(1, 1, 1))
+        local ok, result = pcall(function()
+            if isfile(databaseName) then
+                return HttpService:JSONDecode(readfile(databaseName))
+            end
+        end)
+        
+        local masterDb = (ok and type(result) == "table") and result or {}
+        
+        -- Initialize this specific game entry if it doesn't exist
+        if not masterDb[placeId] then
+            masterDb[placeId] = {}
+            updateLog("New Game Detected. Generating PlaceID entry.", Color3.fromRGB(0, 150, 255))
+        end
+        
+        dbLabel.Text = "DB SERVERS: " .. #masterDb[placeId]
+        updateLog("Game Database Synced. " .. #masterDb[placeId] .. " servers logged.", Color3.fromRGB(0, 255, 120))
+        return masterDb
+    end
+
+    local MasterDB = loadFullDatabase()
+    local VisitedIDs = MasterDB[placeId]
+
+    local function saveDatabase()
+        MasterDB[placeId] = VisitedIDs
+        pcall(function()
+            writefile(databaseName, HttpService:JSONEncode(MasterDB))
+        end)
+    end
+
+    local function markServer(id)
+        local sid = tostring(id)
+        local isLogged = false
+        for _, v in pairs(VisitedIDs) do if v == sid then isLogged = true break end end
+        
+        if not isLogged then
+            table.insert(VisitedIDs, sid)
+            saveDatabase()
+            dbLabel.Text = "DB SERVERS: " .. #VisitedIDs
+            updateLog("Committed: .." .. string.sub(sid, -8), Color3.fromRGB(150, 150, 150))
+        end
+    end
+
+    markServer(currentJobId)
+
+    -- [[ WEBHOOK ALERT SYSTEM ]] --
+    local function sendAlert(reason)
+        if webhook == "" or webhook == "YOUR_WEBHOOK_HERE" then return end
+        local payload = {
+            ["username"] = "Industrial Scanner v10",
+            ["embeds"] = {{
+                ["title"] = "🎯 BACKDOOR HIT IDENTIFIED",
+                ["description"] = reason,
+                ["color"] = 16711680,
+                ["fields"] = {
+                    {["name"] = "Game Name", ["value"] = gameName, ["inline"] = true},
+                    {["name"] = "Place ID", ["value"] = placeId, ["inline"] = true},
+                    {["name"] = "Job ID", ["value"] = "```lua\n" .. currentJobId .. "```", ["inline"] = false},
+                    {["name"] = "Players", ["value"] = #Players:GetPlayers() .. "/" .. Players.MaxPlayers, ["inline"] = true}
+                },
+                ["timestamp"] = DateTime.now():ToIsoDate()
+            }}
+        }
+        pcall(function()
+            local request = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+            request({
+                Url = webhook,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end)
+    end
+
+    -- [[ MAIN SCANNER EXECUTION ]] --
+    local monitor
+    monitor = LogService.MessageOut:Connect(function(msg)
+        local low = msg:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then found_success = true end
+        if string.find(low, "complete") or string.find(low, "finished") then scan_completed = true end
+    end)
+
+    updateLog("Injecting remote analyzer...", Color3.new(1, 1, 1))
+    pcall(function()
+        loadstring(game:HttpGet("]===] .. script_url .. [===["))()
+    end)
+
+    -- Real-time Stats Thread
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                pingLabel.Text = "PING: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+                playerLabel.Text = "PLAYERS: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+                timerLabel.Text = "SESSION: " .. (os.time() - startTime) .. "s"
+            end)
+        end
+    end)
+
+    local timeout = 0
+    while timeout < 40 do
+        if found_success then break end
+        if scan_completed and timeout > 5 then break end
+        timeout = timeout + 1
+        statusLabel.Text = "SCANNING NETWORK... (" .. timeout .. "s)"
+        task.wait(1)
+    end
+    monitor:Disconnect()
+
+    -- [[ SUPERSONIC DEEP-CRAWL HOPPER ]] --
+    if found_success then
+        statusLabel.Text = "SAFE. COMMENCING SUPERSONIC CRAWL..."
+        updateLog("No threats found. Moving to next instance.", Color3.fromRGB(255, 200, 0))
+        
+        local function startSupersonicHop()
+            -- Queue self for teleport
+            local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if q then pcall(function() q(game:HttpGet("]===] .. self_url .. [===[")) end) end
+
+            local cursor = ""
+            local pageIdx = 0
+            
+            while true do
+                pageIdx = pageIdx + 1
+                pageLabel.Text = "API DEPTH: PAGE " .. pageIdx
+                updateLog("Speed-Fetching Page " .. pageIdx .. "...", Color3.fromRGB(0, 180, 255))
+                
+                local api_url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if cursor ~= "" then api_url = api_url .. "&cursor=" .. cursor end
+                
+                local s, r = pcall(function() return game:HttpGet(api_url) end)
+                if s and r then
+                    local site = HttpService:JSONDecode(r)
+                    if site and site.data then
+                        updateLog("Page " .. pageIdx .. ": Processing " .. #site.data .. " servers.", Color3.new(1,1,1))
+                        
+                        for _, srv in pairs(site.data) do
+                            local id = tostring(srv.id)
+                            if srv.playing < srv.maxPlayers and id ~= currentJobId then
+                                local beenThere = false
+                                for _, loggedId in pairs(VisitedIDs) do 
+                                    if id == loggedId then beenThere = true break end 
+                                end
+                                
+                                if not beenThere then
+                                    updateLog("NEW TARGET ACQUIRED: .." .. string.sub(id, -8), Color3.fromRGB(0, 255, 100))
+                                    markServer(id)
+                                    statusLabel.Text = "TELEPORTING..."
+                                    task.wait(0.2)
+                                    TeleportService:TeleportToPlaceInstance(tonumber(placeId), id, LocalPlayer)
+                                    task.wait(6)
+                                end
+                            end
+                        end
+
+                        if site.nextPageCursor and site.nextPageCursor ~= "" then
+                            cursor = site.nextPageCursor
+                            task.wait(0.1) -- Supersonic speed between pages
+                        else
+                            updateLog("Full scan complete. Refreshing in 15s...", Color3.fromRGB(255, 150, 0))
+                            cursor = ""
+                            pageIdx = 0
+                            task.wait(15)
+                        end
+                    end
+                else
+                    updateLog("Roblox API Throttle. Cooling down 10s.", Color3.new(1, 0, 0))
+                    task.wait(10)
+                end
+                task.wait(0.1)
+            end
+        end
+        startSupersonicHop()
+    else
+        statusLabel.Text = "!!! SECURITY ALERT: BACKDOOR DETECTED !!!"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        mainStroke.Color = Color3.fromRGB(255, 50, 50)
+        updateLog("CRITICAL: Backdoor patterns identified.", Color3.new(1, 0, 0))
+        sendAlert("Target found. Scanner finished without a safety confirmation. Server likely compromised.")
+        
+        -- Pulse Effect
+        task.spawn(function()
+            while true do
+                mainStroke.Thickness = 4
+                task.wait(0.5)
+                mainStroke.Thickness = 1
+                task.wait(0.5)
+            end
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
