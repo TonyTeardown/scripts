@@ -1,6 +1,6 @@
 local success_text = "No backdoored"
 local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
-local self_url = "https://example.com/thisscript.lua" -- URL to THIS script
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/yxes" -- URL to THIS script
 
 local FinalScript = [===[
     repeat task.wait() until game:IsLoaded()
