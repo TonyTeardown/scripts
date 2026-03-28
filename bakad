@@ -1,0 +1,82 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad" -- URL to THIS script
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+
+    local success_text = "]===] .. success_text .. [===[" 
+    local script_url = "]===] .. script_url .. [===[" 
+    local self_url = "]===] .. self_url .. [===[" 
+    local found_success = false
+
+    local function serverHop()
+        local queue = (syn and syn.queue_on_teleport)
+                   or (queue_on_teleport)
+                   or (fluxus and fluxus.queue_on_teleport)
+
+        if queue then
+            -- Re-fetch this whole script fresh each hop, no nesting issues ever
+            local ok, src = pcall(function()
+                return game:HttpGet(self_url)
+            end)
+            if ok and src then
+                queue(src)
+            else
+                warn("Failed to fetch self for queue.")
+            end
+        end
+
+        local s, res = pcall(function()
+            local b = game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. game.PlaceId ..
+                "/servers/Public?sortOrder=Asc&limit=100"
+            )
+            return HttpService:JSONDecode(b)
+        end)
+
+        if s and res and res.data then
+            for _, v in pairs(res.data) do
+                if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
+                    return
+                end
+            end
+            warn("No suitable server found.")
+        else
+            warn("Failed to fetch server list.")
+        end
+    end
+
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        if string.find(message:lower(), success_text:lower(), 1, true) then
+            found_success = true
+        end
+    end)
+
+    print("Executing loadstring...")
+    local run_success, err = pcall(function()
+        loadstring(game:HttpGet(script_url))()
+    end)
+
+    if not run_success then
+        warn("Loadstring failed: " .. tostring(err))
+    end
+
+    task.wait(0.5)
+    connection:Disconnect()
+
+    if found_success then
+        print("Success detected! Hopping...")
+        serverHop()
+    else
+        print("Phrase not found. Staying in server.")
+    end
+]===]
+
+loadstring(FinalScript)()
