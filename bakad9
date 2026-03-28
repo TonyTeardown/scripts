@@ -1,0 +1,237 @@
+local success_text = "No backdoored"
+local script_url = "https://raw.githubusercontent.com/jLn0n/beckdeer-skenner/main/src/main.lua"
+local self_url = "https://raw.githubusercontent.com/TonyTeardown/scripts/refs/heads/main/bakad9"
+
+local FinalScript = [===[
+    repeat task.wait() until game:IsLoaded()
+
+    -- [ SERVICES ] --
+    local LogService = game:GetService("LogService")
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- [ VARIABLES ] --
+    local found_success = false
+    local scan_completed = false
+    local fileName = "NotSameServers.json"
+    local currentJobId = tostring(game.JobId)
+    local placeId = game.PlaceId
+
+    -- [ PERSISTENCE LOGIC ] --
+    local function getBlacklist()
+        local ok, data = pcall(function()
+            if isfile(fileName) then
+                local content = readfile(fileName)
+                return HttpService:JSONDecode(content)
+            end
+        end)
+        if ok and type(data) == "table" then 
+            return data 
+        end
+        -- Fallback: Create new list with current hour to handle daily resets
+        return {os.date("!*t").hour}
+    end
+
+    local AllIDs = getBlacklist()
+
+    -- Ensure current server is immediately blacklisted so we don't come back
+    local function updateBlacklist(id)
+        local exists = false
+        for _, v in pairs(AllIDs) do
+            if v == tostring(id) then exists = true break end
+        end
+        if not exists then
+            table.insert(AllIDs, tostring(id))
+            pcall(function()
+                writefile(fileName, HttpService:JSONEncode(AllIDs))
+            end)
+        end
+    end
+    updateBlacklist(currentJobId)
+
+    -- [ UI CONSTRUCTION ] --
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Scanner_OS_v3"
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = CoreGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 280, 0, 100)
+    mainFrame.Position = UDim2.new(1, -290, 1, -110)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 10)
+    uiCorner.Parent = mainFrame
+
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Color = Color3.fromRGB(60, 60, 60)
+    uiStroke.Thickness = 2
+    uiStroke.Parent = mainFrame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.Text = "SYSTEM ANALYZER"
+    titleLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 14
+    titleLabel.Parent = mainFrame
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -20, 0, 25)
+    statusLabel.Position = UDim2.new(0, 10, 0, 35)
+    statusLabel.Text = "INITIALIZING SCANNER..."
+    statusLabel.TextColor3 = Color3.new(1, 1, 1)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextSize = 12
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = mainFrame
+
+    local logLabel = Instance.new("TextLabel")
+    logLabel.Size = UDim2.new(1, -20, 0, 25)
+    logLabel.Position = UDim2.new(0, 10, 0, 60)
+    logLabel.Text = "BLACKLISTED: " .. #AllIDs
+    logLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    logLabel.BackgroundTransparency = 1
+    logLabel.Font = Enum.Font.Gotham
+    logLabel.TextSize = 11
+    logLabel.TextXAlignment = Enum.TextXAlignment.Left
+    logLabel.Parent = mainFrame
+
+    -- [ SCANNER MONITOR ] --
+    local connection
+    connection = LogService.MessageOut:Connect(function(message)
+        local lowerMsg = message:lower()
+        if string.find(lowerMsg, "]===] .. success_text:lower() .. [===[" , 1, true) then
+            found_success = true
+        end
+        -- Broad detection for scanner completion
+        if string.find(lowerMsg, "complete") or string.find(lowerMsg, "finished") or string.find(lowerMsg, "done") then
+            scan_completed = true
+        end
+    end)
+
+    -- [ EXECUTION PHASE ] --
+    task.wait(1)
+    statusLabel.Text = "EXECUTING LOADSTRING..."
+    
+    local run_ok, run_err = pcall(function()
+        local source = game:HttpGet("]===] .. script_url .. [===[")
+        loadstring(source)()
+    end)
+
+    if not run_ok then
+        statusLabel.TextColor3 = Color3.new(1, 0, 0)
+        statusLabel.Text = "LOADSTRING FAILED!"
+        warn("Critical Error: " .. tostring(run_err))
+        task.wait(5)
+        screenGui:Destroy()
+        return
+    end
+
+    -- [ THE WAITING ROOM ] --
+    local timer = 0
+    local maxWait = 45 -- Increased wait for complex servers
+    while timer < maxWait do
+        if found_success then break end
+        if scan_completed and timer > 5 then break end -- Ensure it runs at least 5s
+        
+        timer = timer + 1
+        statusLabel.Text = "ANALYZING... (" .. timer .. "s)"
+        task.wait(1)
+    end
+    
+    connection:Disconnect()
+
+    -- [ DECISION ENGINE ] --
+    if found_success then
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+        statusLabel.Text = "SAFE SERVER. HOPPING..."
+        
+        local function serverHop()
+            -- Queue on Teleport
+            local queue = (syn and syn.queue_on_teleport) or (queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+            if queue then
+                pcall(function() 
+                    queue(game:HttpGet("]===] .. self_url .. [===[")) 
+                end)
+            end
+
+            local cursor = ""
+            while true do
+                statusLabel.Text = "FETCHING NEW SERVERS..."
+                local api_url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                if cursor ~= "" then api_url = api_url .. "&cursor=" .. cursor end
+                
+                local success, result = pcall(function()
+                    return game:HttpGet(api_url)
+                end)
+
+                if success and result then
+                    local decoded = HttpService:JSONDecode(result)
+                    if decoded and decoded.data then
+                        for _, server in pairs(decoded.data) do
+                            local sid = tostring(server.id)
+                            if server.playing < server.maxPlayers and sid ~= currentJobId then
+                                local beenThere = false
+                                for _, visited in pairs(AllIDs) do
+                                    if sid == tostring(visited) then beenThere = true break end
+                                end
+                                
+                                if not beenThere then
+                                    statusLabel.Text = "TELEPORTING TO NEW INSTANCE..."
+                                    logLabel.Text = "ID: .." .. string.sub(sid, -8)
+                                    updateBlacklist(sid)
+                                    
+                                    task.wait(0.5)
+                                    TeleportService:TeleportToPlaceInstance(placeId, sid, LocalPlayer)
+                                    task.wait(5) -- Cooldown for engine
+                                end
+                            end
+                        end
+                        
+                        -- Handle Cursor if page was full of visited servers
+                        if decoded.nextPageCursor then
+                            cursor = decoded.nextPageCursor
+                        else
+                            -- Reset cursor if we hit the end
+                            cursor = ""
+                            statusLabel.Text = "END OF LIST. RESTARTING..."
+                            task.wait(2)
+                        end
+                    end
+                else
+                    statusLabel.Text = "API LIMIT. RETRYING IN 10s..."
+                    task.wait(10)
+                end
+                task.wait(1)
+            end
+        end
+        serverHop()
+    else
+        -- IF WE ARE HERE, THE SUCCESS TEXT WAS NEVER FOUND
+        statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        statusLabel.Text = "!!! HIT DETECTED !!!"
+        logLabel.Text = "Scanner found no safety. Script stopped."
+        titleLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        
+        -- Sound Alert (Optional)
+        local sound = Instance.new("Sound", CoreGui)
+        sound.SoundId = "rbxassetid://4590662766" -- Notification sound
+        sound:Play()
+        
+        print("--------------------------------------------------")
+        print("ALERT: Possible Backdoor in this server.")
+        print("JobId: " .. currentJobId)
+        print("--------------------------------------------------")
+    end
+]===]
+
+loadstring(FinalScript)()
